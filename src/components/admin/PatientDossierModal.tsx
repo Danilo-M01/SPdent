@@ -20,7 +20,7 @@ import {
   ImageIcon,
 } from 'lucide-react'
 import type { Patient } from '@/app/admin/(dashboard)/page'
-import { updatePatient, addClinicalReport, addAppointment } from '@/app/admin/actions'
+import { updatePatient, addClinicalReport, addAppointment, deletePatient } from '@/app/admin/actions'
 import { createClient } from '@/lib/supabase/client'
 
 // Lazy-load heavy components (chart + uploader) for faster initial modal open
@@ -140,6 +140,21 @@ export default function PatientDossierModal({ patient: initialPatient, onClose }
   const [isLoadingReports, setIsLoadingReports] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
+  const handleDeletePatient = async () => {
+    setIsSubmitting(true)
+    setError(null)
+    try {
+      await deletePatient(patient.id)
+      onClose()
+      window.location.href = '/admin'
+    } catch (err) {
+      console.error(err)
+      setError('Greška pri brisanju pacijenta.')
+      setIsSubmitting(false)
+    }
+  }
 
   // Catalog State
   const [selectedDoctor, setSelectedDoctor] = useState<string>('dr Slaviša')
@@ -762,10 +777,44 @@ export default function PatientDossierModal({ patient: initialPatient, onClose }
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
-                  <button type="submit" disabled={isSubmitting} className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-sky-500 hover:bg-sky-400 text-white transition-colors flex items-center gap-2 disabled:opacity-50">
-                    <Save size={16} /> Sačuvaj izmene
-                  </button>
+                <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 pt-4 border-t border-white/10">
+                  {/* Delete button (with confirmation) */}
+                  {!showDeleteConfirm ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border border-red-500/20 hover:border-red-500/30 transition-all duration-200 cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      Obriši pacijenta
+                    </button>
+                  ) : (
+                    <div className="flex items-center justify-between sm:justify-start gap-2 bg-red-500/5 border border-red-500/15 rounded-xl p-2 px-3">
+                      <span className="text-xs text-red-400 font-medium mr-2">Sigurno obrisati?</span>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleDeletePatient}
+                          disabled={isSubmitting}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-600 hover:bg-red-500 text-white transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          Da
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowDeleteConfirm(false)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
+                        >
+                          Ne
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-3">
+                    <button type="submit" disabled={isSubmitting} className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-sky-500 hover:bg-sky-400 text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer">
+                      <Save size={16} /> Sačuvaj izmene
+                    </button>
+                  </div>
                 </div>
               </div>
             </form>
