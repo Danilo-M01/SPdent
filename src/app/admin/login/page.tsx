@@ -33,18 +33,15 @@ export default function AdminLoginPage() {
         className="w-full max-w-md"
       >
         {/* Logo */}
-        <div className="flex flex-col items-center mb-10">
-          <div className="mb-5">
-            <Image
-              src="/logo-spdent.png"
-              alt="SP DENT"
-              width={160}
-              height={64}
-              className="object-contain brightness-0 invert"
-              priority
-            />
-          </div>
-          <p className="text-slate-400 text-sm">Sigurna zona pristupa</p>
+        <div className="flex flex-col items-center mb-8">
+          <Image
+            src="/logo-spdent.png"
+            alt="SP DENT"
+            width={240}
+            height={96}
+            className="object-contain brightness-0 invert transition-transform hover:scale-105 duration-300"
+            priority
+          />
         </div>
 
         {/* Glass card */}
