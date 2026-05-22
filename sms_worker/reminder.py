@@ -16,7 +16,7 @@ import time
 import random
 import logging
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
+import pytz
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -31,10 +31,11 @@ load_dotenv()
 
 SUPABASE_URL              = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-SMS_GATEWAY_URL           = os.getenv("SMS_GATEWAY_URL", "http://192.168.1.15:8080/send")
+SMS_GATEWAY_URL           = os.getenv("SMS_GATEWAY_URL", "http://192.168.1.15:8080/send-sms")
+SMS_GATEWAY_TOKEN         = os.getenv("SMS_GATEWAY_TOKEN", "")
 
-BELGRADE_TZ       = ZoneInfo("Europe/Belgrade")
-UTC_TZ            = ZoneInfo("UTC")
+BELGRADE_TZ       = pytz.timezone("Europe/Belgrade")
+UTC_TZ            = pytz.utc
 SMS_TIMEOUT_SEC   = 10
 MAX_RETRIES       = 3
 
@@ -80,12 +81,12 @@ def get_tomorrow_window_utc() -> tuple[str, str]:
     tomorrow_date = now_belgrade.date() + timedelta(days=1)
     day_after_date = tomorrow_date + timedelta(days=1)
 
-    start_local = datetime(
-        tomorrow_date.year, tomorrow_date.month, tomorrow_date.day, 0, 0, 0, tzinfo=BELGRADE_TZ
-    )
-    end_local = datetime(
-        day_after_date.year, day_after_date.month, day_after_date.day, 0, 0, 0, tzinfo=BELGRADE_TZ
-    )
+    start_local = BELGRADE_TZ.localize(datetime(
+        tomorrow_date.year, tomorrow_date.month, tomorrow_date.day, 0, 0, 0
+    ))
+    end_local = BELGRADE_TZ.localize(datetime(
+        day_after_date.year, day_after_date.month, day_after_date.day, 0, 0, 0
+    ))
 
     return (
         start_local.astimezone(UTC_TZ).isoformat(),
@@ -100,10 +101,7 @@ def format_time_belgrade(dt_iso: str) -> str:
 
 
 def build_message(first_name: str, appt_time: str) -> str:
-    return (
-        f"Postovani {first_name}, podsecamo Vas na Vas stomatoloski termin "
-        f"sutra u {appt_time}h. Srdacan pozdrav!"
-    )
+    return f"Imate zakazan termin sutra u {appt_time} u SP dent."
 
 
 def get_robust_session() -> requests.Session:
@@ -139,10 +137,19 @@ def send_sms(session: requests.Session, phone: str, message: str) -> bool:
     POST to Android SMS Gateway using the robust session.
     Returns True only on confirmed HTTP 200.
     """
-    payload = {"phone": phone, "message": message}
+    payload = {
+        "phone": phone,
+        "to": phone,
+        "number": phone,
+        "message": message
+    }
+
+    headers = {}
+    if SMS_GATEWAY_TOKEN:
+        headers["Authorization"] = f"Bearer {SMS_GATEWAY_TOKEN}"
 
     try:
-        resp = session.post(SMS_GATEWAY_URL, json=payload, timeout=SMS_TIMEOUT_SEC)
+        resp = session.post(SMS_GATEWAY_URL, json=payload, headers=headers, timeout=SMS_TIMEOUT_SEC)
         resp.raise_for_status()
         log.info(f"  ✅ SMS sent → {phone}")
         return True
@@ -204,11 +211,12 @@ def main() -> None:
             log_to_supabase(supabase, "INFO", "Heartbeat", "sms_worker")
             log.info("Heartbeat sent to Supabase.")
 
-            # 2. Check time window (18:00 - 20:00 Belgrade time)
+            # 2. Check time window (18:00 - 20:00 Belgrade time) or bypass for testing
             now_belgrade = datetime.now(BELGRADE_TZ)
             current_hour = now_belgrade.hour
+            bypass_window = os.getenv("BYPASS_TIME_WINDOW", "false").lower() == "true"
 
-            if 18 <= current_hour < 20:
+            if 18 <= current_hour < 21 or bypass_window:
                 log.info(f"Inside sending window ({now_belgrade.strftime('%H:%M')}). Checking appointments...")
                 run_start = time.monotonic()
                 start_utc, end_utc = get_tomorrow_window_utc()
@@ -281,3 +289,7 @@ def main() -> None:
         # Sleep for 10 minutes (600 seconds)
         log.info("Sleeping for 10 minutes...")
         time.sleep(600)
+
+
+if __name__ == "__main__":
+    main()

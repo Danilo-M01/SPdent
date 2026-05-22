@@ -25,12 +25,10 @@ export default function PatientCard({ patient, index }: PatientCardProps) {
 
   return (
     <motion.div
-      layout
-      initial={{ opacity: 0, y: 20, scale: 0.97 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ duration: 0.3, delay: index * 0.04, ease: 'easeOut' }}
-      whileHover={{ y: -3, transition: { duration: 0.2 } }}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      whileHover={{ y: -2, transition: { duration: 0.15 } }}
       className="group relative bg-slate-900/70 backdrop-blur-xl border border-white/5 hover:border-white/10 rounded-2xl p-5 flex flex-col gap-4 shadow-lg shadow-black/30 overflow-hidden"
     >
       {/* Glass shimmer — CSS only, no JS re-render */}

@@ -140,13 +140,13 @@ export default function AdminDashboardClient({
   const catMeta = activeCategory ? CATEGORY_META[activeCategory] : null
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6 lg:p-8">
+    <div className="min-h-screen bg-slate-950 p-6 pt-20 lg:p-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <h1 className="text-2xl font-bold text-white tracking-tight">Kontrolna tabla</h1>
-            <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-900/60 border border-white/5 text-xs select-none">
+            <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-900/60 border border-white/5 text-xs select-none shrink-0">
               <span className="relative flex h-2 w-2">
                 {smsStatus === 'online' && (
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -161,7 +161,7 @@ export default function AdminDashboardClient({
               </span>
             </div>
             {catMeta && (
-              <span className={`text-xs px-2.5 py-1 rounded-lg border font-medium ${catMeta.color}`}>
+              <span className={`text-xs px-2.5 py-1 rounded-lg border font-medium shrink-0 ${catMeta.color}`}>
                 {catMeta.label}
               </span>
             )}
@@ -249,13 +249,11 @@ export default function AdminDashboardClient({
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            <AnimatePresence mode="popLayout">
-              {renderedPatients.map((patient, i) => (
-                <div key={patient.id} onClick={() => setSelectedPatient(patient)} className="cursor-pointer">
-                  <PatientCard patient={patient} index={i} />
-                </div>
-              ))}
-            </AnimatePresence>
+            {renderedPatients.map((patient, i) => (
+              <div key={patient.id} onClick={() => setSelectedPatient(patient)} className="cursor-pointer">
+                <PatientCard patient={patient} index={i} />
+              </div>
+            ))}
           </div>
 
           {filteredPatients.length > visibleCount && (

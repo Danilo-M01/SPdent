@@ -110,10 +110,10 @@ export default async function TerminiPage() {
   const sortedKeys = Object.keys(grouped).sort()
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6 lg:p-8">
+    <div className="min-h-screen bg-slate-950 p-6 pt-20 lg:p-8">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center gap-3 mb-1">
+        <div className="flex flex-wrap items-center gap-3 mb-1">
           <CalendarDays className="text-sky-400" size={24} />
           <h1 className="text-2xl font-bold text-white tracking-tight">Termini</h1>
         </div>
