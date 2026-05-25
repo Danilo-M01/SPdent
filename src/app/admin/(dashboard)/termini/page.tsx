@@ -163,7 +163,6 @@ export default async function TerminiPage() {
                   dateKey={dateKey}
                   today={today}
                   CATEGORY_LABELS={CATEGORY_LABELS}
-                  formatTime={formatTime}
                 />
               </div>
             )

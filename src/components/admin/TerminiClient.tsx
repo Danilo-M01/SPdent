@@ -27,7 +27,14 @@ interface TerminiClientProps {
   dateKey: string
   today: boolean
   CATEGORY_LABELS: Record<string, { label: string; color: string }>
-  formatTime: (iso: string) => string
+}
+
+function formatTime(iso: string) {
+  return new Intl.DateTimeFormat('sr-RS', {
+    timeZone: 'Europe/Belgrade',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso))
 }
 
 export default function TerminiClient({
@@ -35,7 +42,6 @@ export default function TerminiClient({
   dateKey,
   today,
   CATEGORY_LABELS,
-  formatTime,
 }: TerminiClientProps) {
   const [editingApptId, setEditingApptId] = useState<string | null>(null)
   const [editDatetime, setEditDatetime] = useState<string>('')
@@ -99,7 +105,7 @@ export default function TerminiClient({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 relative">
       <AnimatePresence mode="popLayout">
         {appointments.map((appt) => {
           const catInfo = CATEGORY_LABELS[appt.patient?.category ?? 'regular']
@@ -113,7 +119,7 @@ export default function TerminiClient({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className={`flex items-start gap-4 p-4 rounded-2xl border transition-all ${
+              className={`flex items-start gap-4 p-4 rounded-2xl border transition-all relative ${
                 isPast
                   ? 'bg-slate-900/30 border-white/5 opacity-60'
                   : 'bg-slate-900/70 border-white/10 hover:border-white/20'
