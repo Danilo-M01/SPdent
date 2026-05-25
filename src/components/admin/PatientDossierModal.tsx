@@ -578,26 +578,26 @@ export default function PatientDossierModal({ patient: initialPatient, onClose }
                       let smsStatus = null
                       if (!hasPhone) {
                         smsStatus = (
-                          <span className="text-xs px-2 py-1 bg-slate-800/40 text-slate-500 border border-white/5 rounded-md flex items-center gap-1 shrink-0">
+                          <span className="text-xs text-slate-500 font-medium flex items-center gap-1 shrink-0">
                             Nema tel
                           </span>
                         )
                       } else if (appt.reminder_sent) {
                         smsStatus = (
-                          <span className="text-xs px-2 py-1 bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-md flex items-center gap-1 shrink-0">
+                          <span className="text-xs text-sky-400 font-medium flex items-center gap-1 shrink-0">
                             <Check size={12}/> SMS Poslat
                           </span>
                         )
                       } else if (isFuture) {
                         if (isForTomorrow) {
                           smsStatus = (
-                            <span className="text-xs px-2 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-md flex items-center gap-1 shrink-0">
+                            <span className="text-xs text-amber-400 font-medium flex items-center gap-1 shrink-0">
                               <Clock size={12}/> SMS večeras 18–21h
                             </span>
                           )
                         } else if (isBeyondTomorrow) {
                           smsStatus = (
-                            <span className="text-xs px-2 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md flex items-center gap-1 shrink-0">
+                            <span className="text-xs text-emerald-400 font-medium flex items-center gap-1 shrink-0">
                               <Clock size={12}/> Podsetnik uključen
                             </span>
                           )

@@ -24,9 +24,9 @@ interface AppointmentWithPatient {
 }
 
 const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
-  regular: { label: 'Regularni', color: 'bg-slate-500/20 text-slate-300' },
-  implant: { label: 'Implant', color: 'bg-sky-500/20 text-sky-300' },
-  proteza: { label: 'Protetika', color: 'bg-violet-500/20 text-violet-300' },
+  regular: { label: 'Regularni', color: 'text-slate-400' },
+  implant: { label: 'Implant', color: 'text-sky-400' },
+  proteza: { label: 'Protetika', color: 'text-violet-400' },
 }
 
 function formatTime(iso: string) {
@@ -195,22 +195,20 @@ export default async function TerminiPage() {
                                 {appt.patient?.phone?.startsWith('/') ? '/' : appt.patient?.phone}
                               </p>
                             </div>
-                            <div className="flex flex-col items-end gap-1.5 shrink-0">
-                              <div className="flex flex-wrap gap-2 justify-end">
-                                {catInfo && (
-                                  <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${catInfo.color}`}>
-                                    {catInfo.label}
-                                  </span>
-                                )}
-                                {appt.reminder_sent && (
-                                  <span className="text-xs px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-medium">
-                                    ✓ SMS
-                                  </span>
-                                )}
-                              </div>
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              {catInfo && (
+                                <span className={`text-xs font-medium ${catInfo.color}`}>
+                                  {catInfo.label}
+                                </span>
+                              )}
                               {appt.doctor_name && (
-                                <span className="text-xs text-slate-400 font-medium">
+                                <span className="text-xs text-slate-500 font-medium">
                                   {appt.doctor_name}
+                                </span>
+                              )}
+                              {appt.reminder_sent && (
+                                <span className="text-xs text-emerald-400 font-medium mt-1">
+                                  ✓ SMS Poslat
                                 </span>
                               )}
                             </div>

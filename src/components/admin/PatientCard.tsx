@@ -9,9 +9,9 @@ import {
 } from 'lucide-react'
 
 const CATEGORY_BADGES: Record<string, { label: string; cls: string }> = {
-  regular: { label: 'Regularni', cls: 'bg-slate-500/15 text-slate-400' },
-  implant:  { label: 'Implant',  cls: 'bg-sky-500/15 text-sky-400' },
-  proteza:  { label: 'Protetika', cls: 'bg-violet-500/15 text-violet-400' },
+  regular: { label: 'Regularni', cls: 'text-slate-400' },
+  implant:  { label: 'Implant',  cls: 'text-sky-400' },
+  proteza:  { label: 'Protetika', cls: 'text-violet-400' },
 }
 
 interface PatientCardProps {
@@ -50,7 +50,7 @@ export default function PatientCard({ patient, index }: PatientCardProps) {
         <div className="flex flex-col gap-1.5 items-end shrink-0">
           {/* Category badge */}
           {catBadge && (
-            <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${catBadge.cls}`}>
+            <span className={`text-xs font-medium ${catBadge.cls}`}>
               {catBadge.label}
             </span>
           )}
@@ -95,7 +95,7 @@ export default function PatientCard({ patient, index }: PatientCardProps) {
           <p className="pl-5 text-slate-500 text-xs truncate">{patient.email}</p>
         )}
         {patient.next_appointment && (
-          <div className="mt-2 flex items-center gap-2 text-emerald-400 text-xs font-medium bg-emerald-500/10 px-2.5 py-1.5 rounded-lg w-max">
+          <div className="mt-2 flex items-center gap-2 text-emerald-400 text-xs font-medium">
             <Calendar size={13} />
             Termin: {new Intl.DateTimeFormat('sr-RS', { 
               day: '2-digit', 

@@ -291,6 +291,7 @@ export async function addAppointment(
     const patientId = sanitizeText(formData.get('patient_id'))
     const datetimeRaw = String(formData.get('appointment_datetime') ?? '').trim()
     const treatmentToday = sanitizeText(formData.get('treatment_today'))
+    const doctorName = sanitizeText(formData.get('doctor_name')) || null
 
     if (!patientId) return { success: false, error: 'Pacijent je obavezan.' }
     if (!datetimeRaw) return { success: false, error: 'Datum i vreme su obavezni.' }
@@ -307,6 +308,7 @@ export async function addAppointment(
       treatment_today: treatmentToday || null,
       treatment_history: [],
       reminder_sent: false,
+      doctor_name: doctorName,
     })
 
     if (error) {
