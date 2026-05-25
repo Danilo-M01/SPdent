@@ -46,6 +46,13 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
         : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
     }`
 
+  const categoryNavLinkClass = (active: boolean) =>
+    `group flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ${
+      active
+        ? 'text-sky-400 font-bold text-base bg-transparent border-none'
+        : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 text-sm font-medium'
+    }`
+
   const handleLinkClick = () => {
     setIsMobileOpen(false)
   }
@@ -165,11 +172,15 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
                   href="/admin"
                   prefetch={true}
                   onClick={handleLinkClick}
-                  className={navLinkClass(
+                  className={categoryNavLinkClass(
                     isCategoryActive(null) && pathname === '/admin' && !currentCategory
                   )}
                 >
-                  <Users size={16} className="shrink-0 opacity-70" />
+                  <Users size={16} className={`shrink-0 transition-all ${
+                    isCategoryActive(null) && pathname === '/admin' && !currentCategory
+                      ? 'text-sky-400 opacity-100 scale-110'
+                      : 'opacity-70'
+                  }`} />
                   Svi pacijenti
                 </Link>
 
@@ -178,9 +189,13 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
                   href="/admin?category=regular"
                   prefetch={true}
                   onClick={handleLinkClick}
-                  className={navLinkClass(isCategoryActive('regular'))}
+                  className={categoryNavLinkClass(isCategoryActive('regular'))}
                 >
-                  <Users size={16} className="shrink-0 opacity-70" />
+                  <Users size={16} className={`shrink-0 transition-all ${
+                    isCategoryActive('regular')
+                      ? 'text-sky-400 opacity-100 scale-110'
+                      : 'opacity-70'
+                  }`} />
                   Regularni
                 </Link>
 
@@ -189,9 +204,13 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
                   href="/admin?category=implant"
                   prefetch={true}
                   onClick={handleLinkClick}
-                  className={navLinkClass(isCategoryActive('implant'))}
+                  className={categoryNavLinkClass(isCategoryActive('implant'))}
                 >
-                  <Stethoscope size={16} className="shrink-0 opacity-70" />
+                  <Stethoscope size={16} className={`shrink-0 transition-all ${
+                    isCategoryActive('implant')
+                      ? 'text-sky-400 opacity-100 scale-110'
+                      : 'opacity-70'
+                  }`} />
                   Implantologija
                 </Link>
 
@@ -200,9 +219,13 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
                   href="/admin?category=proteza"
                   prefetch={true}
                   onClick={handleLinkClick}
-                  className={navLinkClass(isCategoryActive('proteza'))}
+                  className={categoryNavLinkClass(isCategoryActive('proteza'))}
                 >
-                  <Layers size={16} className="shrink-0 opacity-70" />
+                  <Layers size={16} className={`shrink-0 transition-all ${
+                    isCategoryActive('proteza')
+                      ? 'text-sky-400 opacity-100 scale-110'
+                      : 'opacity-70'
+                  }`} />
                   Protetika
                 </Link>
               </div>

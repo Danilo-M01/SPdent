@@ -25,9 +25,9 @@ interface AdminDashboardClientProps {
 }
 
 const CATEGORY_META: Record<string, { label: string; color: string }> = {
-  regular: { label: 'Regularni pacijenti', color: 'bg-slate-500/20 text-slate-300' },
-  implant: { label: 'Implantologija', color: 'bg-sky-500/20 text-sky-300' },
-  proteza: { label: 'Protetika', color: 'bg-violet-500/20 text-violet-300' },
+  regular: { label: 'Regularni pacijenti', color: 'text-slate-300' },
+  implant: { label: 'Implantologija', color: 'text-sky-300' },
+  proteza: { label: 'Protetika', color: 'text-violet-300' },
 }
 
 const statCards = (stats: Stats) => [
@@ -160,8 +160,8 @@ export default function AdminDashboardClient({
               </span>
             </div>
             {catMeta && (
-              <span className={`text-[13px] px-3 py-1 rounded-lg font-bold shrink-0 ${catMeta.color}`}>
-                {catMeta.label}
+              <span className={`text-base font-bold shrink-0 pl-1 ${catMeta.color}`}>
+                — {catMeta.label}
               </span>
             )}
           </div>
