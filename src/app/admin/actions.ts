@@ -626,13 +626,19 @@ export async function uploadXRay(formData: FormData): Promise<{ success: boolean
       return { success: false, error: uploadError.message }
     }
 
-    const { data: urlData } = adminClient.storage.from('xrays').getPublicUrl(path)
+    const { data: signedData, error: signError } = await adminClient.storage
+      .from('xrays')
+      .createSignedUrl(path, 3600) // 1 hour expiration
+
+    if (signError) {
+      return { success: false, error: signError.message }
+    }
 
     return {
       success: true,
       file: {
         name: file.name,
-        url: urlData.publicUrl,
+        url: signedData.signedUrl,
         type: file.type,
         uploadedAt: new Date().toISOString(),
         path,
@@ -641,6 +647,64 @@ export async function uploadXRay(formData: FormData): Promise<{ success: boolean
   } catch (err: any) {
     console.error('[uploadXRay] error:', err)
     return { success: false, error: err.message || 'Greška pri uploadu.' }
+  }
+}
+
+export async function listXRays(patientId: string): Promise<{ success: boolean; files?: any[]; error?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, error: 'Neautorizovan pristup.' }
+    }
+
+    if (!patientId) {
+      return { success: false, error: 'Nedostaje ID pacijenta.' }
+    }
+
+    const adminClient = createAdminClient()
+    const { data, error } = await adminClient.storage
+      .from('xrays')
+      .list(`patients/${patientId}`, { sortBy: { column: 'created_at', order: 'desc' } })
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    if (!data || data.length === 0) {
+      return { success: true, files: [] }
+    }
+
+    const filteredFiles = data.filter(f => f.name !== '.emptyFolderPlaceholder')
+    if (filteredFiles.length === 0) {
+      return { success: true, files: [] }
+    }
+
+    const paths = filteredFiles.map(f => `patients/${patientId}/${f.name}`)
+    const { data: signedUrls, error: signError } = await adminClient.storage
+      .from('xrays')
+      .createSignedUrls(paths, 3600) // 1 hour expiration
+
+    if (signError) {
+      return { success: false, error: signError.message }
+    }
+
+    const files = filteredFiles.map(f => {
+      const path = `patients/${patientId}/${f.name}`
+      const signedObj = signedUrls.find(s => s.path === path)
+      return {
+        name: f.name,
+        url: signedObj ? signedObj.signedUrl : '',
+        type: f.name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg',
+        uploadedAt: f.created_at ?? new Date().toISOString(),
+        path,
+      }
+    })
+
+    return { success: true, files }
+  } catch (err: any) {
+    console.error('[listXRays] error:', err)
+    return { success: false, error: err.message || 'Greška pri listanju snimaka.' }
   }
 }
 

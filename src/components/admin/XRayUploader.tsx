@@ -2,8 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { createClient } from '@/lib/supabase/client'
-import { uploadXRay, deleteXRay } from '@/app/admin/actions'
+import { uploadXRay, deleteXRay, listXRays } from '@/app/admin/actions'
 import { Upload, ImageIcon, FileIcon, ZoomIn, X, Loader2 } from 'lucide-react'
 
 interface XRayFile {
@@ -31,41 +30,57 @@ export default function XRayUploader({ patientId }: XRayUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [hasLoaded, setHasLoaded] = useState(false)
 
+  // Zoom/Rotate/Pan states for full screen view
+  const [scale, setScale] = useState(1)
+  const [rotation, setRotation] = useState(0)
+  const [isDraggingImage, setIsDraggingImage] = useState(false)
+  const [panPosition, setPanPosition] = useState({ x: 0, y: 0 })
+  const dragStart = useRef({ x: 0, y: 0 })
+
+  const handleZoomIn = () => setScale(prev => Math.min(prev + 0.25, 4))
+  const handleZoomOut = () => setScale(prev => {
+    const next = Math.max(prev - 0.25, 1)
+    if (next === 1) setPanPosition({ x: 0, y: 0 })
+    return next
+  })
+  const handleRotate = () => setRotation(prev => (prev + 90) % 360)
+  const handleReset = () => {
+    setScale(1)
+    setRotation(0)
+    setPanPosition({ x: 0, y: 0 })
+  }
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (scale === 1) return
+    setIsDraggingImage(true)
+    dragStart.current = { x: e.clientX - panPosition.x, y: e.clientY - panPosition.y }
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDraggingImage || scale === 1) return
+    const nextX = e.clientX - dragStart.current.x
+    const nextY = e.clientY - dragStart.current.y
+    setPanPosition({ x: nextX, y: nextY })
+  }
+
+  const handleMouseUpOrLeave = () => {
+    setIsDraggingImage(false)
+  }
+
   // Lazy-load existing files from Supabase Storage
   useEffect(() => {
     let active = true
     const fetchFiles = async () => {
-      const supabase = createClient()
-      const { data, error } = await supabase.storage
-        .from('xrays')
-        .list(`patients/${patientId}`, { sortBy: { column: 'created_at', order: 'desc' } })
-
+      const result = await listXRays(patientId)
       if (!active) return
 
-      if (!error && data) {
-        const loaded = await Promise.all(
-          data
-            .filter(f => f.name !== '.emptyFolderPlaceholder')
-            .map(async f => {
-              const path = `patients/${patientId}/${f.name}`
-              const { data: urlData } = supabase.storage.from('xrays').getPublicUrl(path)
-              return {
-                name: f.name,
-                url: urlData.publicUrl,
-                type: f.name.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg',
-                uploadedAt: f.created_at ?? new Date().toISOString(),
-                path,
-              }
-            })
-        )
-        if (active) {
-          setFiles(loaded)
-        }
+      if (result.success && result.files) {
+        setFiles(result.files)
+      } else {
+        setError(result.error || 'Greška pri učitavanju snimaka.')
       }
-      if (active) {
-        setHasLoaded(true)
-        setIsLoading(false)
-      }
+      setHasLoaded(true)
+      setIsLoading(false)
     }
 
     fetchFiles()
@@ -176,11 +191,20 @@ export default function XRayUploader({ patientId }: XRayUploaderProps) {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className="group relative bg-slate-900 border border-white/10 rounded-xl overflow-hidden aspect-square"
+                className={`group relative bg-slate-900 border border-white/10 rounded-xl overflow-hidden aspect-square ${
+                  file.type !== 'application/pdf' ? 'cursor-pointer hover:border-white/20' : 'cursor-pointer hover:border-sky-500/20'
+                }`}
+                onClick={() => {
+                  if (file.type === 'application/pdf') {
+                    window.open(file.url, '_blank')
+                  } else {
+                    setZoomedImage(file)
+                  }
+                }}
               >
                 {file.type === 'application/pdf' ? (
                   <div className="flex flex-col items-center justify-center h-full text-slate-400 p-4">
-                    <FileIcon size={32} className="mb-2" />
+                    <FileIcon size={32} className="mb-2 text-sky-400" />
                     <p className="text-xs text-center truncate w-full">{file.name}</p>
                   </div>
                 ) : (
@@ -197,6 +221,7 @@ export default function XRayUploader({ patientId }: XRayUploaderProps) {
                     <button
                       onClick={e => { e.stopPropagation(); setZoomedImage(file) }}
                       className="p-2 bg-white/10 hover:bg-white/20 rounded-xl text-white transition-colors"
+                      title="Uvećaj"
                     >
                       <ZoomIn size={16} />
                     </button>
@@ -204,6 +229,7 @@ export default function XRayUploader({ patientId }: XRayUploaderProps) {
                   <button
                     onClick={e => { e.stopPropagation(); handleDelete(file) }}
                     className="p-2 bg-red-500/20 hover:bg-red-500/40 rounded-xl text-red-400 transition-colors"
+                    title="Obriši"
                   >
                     <X size={16} />
                   </button>
@@ -231,21 +257,92 @@ export default function XRayUploader({ patientId }: XRayUploaderProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] bg-black/90 flex items-center justify-center p-4"
-            onClick={() => setZoomedImage(null)}
+            className="fixed inset-0 z-[70] bg-slate-950/95 flex flex-col items-center justify-center p-4 select-none"
+            onClick={() => { setZoomedImage(null); handleReset() }}
           >
-            <button
-              className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-xl text-white"
-              onClick={() => setZoomedImage(null)}
+            {/* Top Bar with Info and Actions */}
+            <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-[80]" onClick={e => e.stopPropagation()}>
+              <div className="bg-slate-900/80 backdrop-blur border border-white/10 px-3 py-1.5 rounded-xl text-slate-300 text-xs font-medium max-w-[50%] truncate">
+                {zoomedImage.name} ({formatDate(zoomedImage.uploadedAt)})
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center bg-slate-900/80 backdrop-blur border border-white/10 p-1 rounded-xl gap-1">
+                  <button
+                    onClick={handleZoomOut}
+                    disabled={scale === 1}
+                    className="w-8 h-8 flex items-center justify-center hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent text-white rounded-lg transition-colors text-lg font-bold"
+                    title="Umanji"
+                  >
+                    -
+                  </button>
+                  <span className="text-white text-xs px-1 min-w-[3rem] text-center font-medium">
+                    {Math.round(scale * 100)}%
+                  </span>
+                  <button
+                    onClick={handleZoomIn}
+                    disabled={scale === 4}
+                    className="w-8 h-8 flex items-center justify-center hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent text-white rounded-lg transition-colors text-lg font-bold"
+                    title="Uvećaj"
+                  >
+                    +
+                  </button>
+                  <div className="w-[1px] h-4 bg-white/10 mx-1" />
+                  <button
+                    onClick={handleRotate}
+                    className="p-2 hover:bg-white/10 text-white rounded-lg transition-colors"
+                    title="Rotiraj za 90°"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 16H19M20 20v-5h-5" /></svg>
+                  </button>
+                  <button
+                    onClick={handleReset}
+                    className="px-2 py-1 hover:bg-white/10 text-white rounded-lg transition-colors text-xs font-medium"
+                    title="Resetuj prikaz"
+                  >
+                    Reset
+                  </button>
+                </div>
+                <button
+                  className="p-2 bg-white/10 hover:bg-white/20 rounded-xl text-white transition-colors"
+                  onClick={() => { setZoomedImage(null); handleReset() }}
+                  title="Zatvori"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Image viewport */}
+            <div 
+              className="w-full h-full flex items-center justify-center overflow-hidden"
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUpOrLeave}
+              onMouseLeave={handleMouseUpOrLeave}
             >
-              <X size={20} />
-            </button>
-            <img
-              src={zoomedImage.url}
-              alt={zoomedImage.name}
-              className="max-w-full max-h-[90vh] rounded-2xl object-contain"
-              onClick={e => e.stopPropagation()}
-            />
+              <div 
+                style={{
+                  transform: `translate(${panPosition.x}px, ${panPosition.y}px) scale(${scale}) rotate(${rotation}deg)`,
+                  transition: isDraggingImage ? 'none' : 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                  cursor: scale > 1 ? (isDraggingImage ? 'grabbing' : 'grab') : 'default'
+                }}
+                className="max-w-[95vw] max-h-[95vh] flex items-center justify-center"
+                onClick={e => e.stopPropagation()}
+                onDoubleClick={() => {
+                  if (scale > 1) {
+                    handleReset()
+                  } else {
+                    setScale(2)
+                  }
+                }}
+              >
+                <img
+                  src={zoomedImage.url}
+                  alt={zoomedImage.name}
+                  className="w-[90vw] h-[80vh] md:h-[85vh] rounded-xl object-contain pointer-events-none select-none"
+                />
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
