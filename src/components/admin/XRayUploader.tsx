@@ -39,8 +39,8 @@ export default function XRayUploader({ patientId }: XRayUploaderProps) {
 
   const handleZoomIn = () => setScale(prev => Math.min(prev + 0.25, 4))
   const handleZoomOut = () => setScale(prev => {
-    const next = Math.max(prev - 0.25, 1)
-    if (next === 1) setPanPosition({ x: 0, y: 0 })
+    const next = Math.max(prev - 0.25, 0.25)
+    if (next <= 1) setPanPosition({ x: 0, y: 0 })
     return next
   })
   const handleRotate = () => setRotation(prev => (prev + 90) % 360)
@@ -51,13 +51,13 @@ export default function XRayUploader({ patientId }: XRayUploaderProps) {
   }
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (scale === 1) return
+    if (scale <= 1) return
     setIsDraggingImage(true)
     dragStart.current = { x: e.clientX - panPosition.x, y: e.clientY - panPosition.y }
   }
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDraggingImage || scale === 1) return
+    if (!isDraggingImage || scale <= 1) return
     const nextX = e.clientX - dragStart.current.x
     const nextY = e.clientY - dragStart.current.y
     setPanPosition({ x: nextX, y: nextY })
@@ -269,7 +269,7 @@ export default function XRayUploader({ patientId }: XRayUploaderProps) {
                 <div className="flex items-center bg-slate-900/80 backdrop-blur border border-white/10 p-1 rounded-xl gap-1">
                   <button
                     onClick={handleZoomOut}
-                    disabled={scale === 1}
+                    disabled={scale <= 0.25}
                     className="w-8 h-8 flex items-center justify-center hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent text-white rounded-lg transition-colors text-lg font-bold"
                     title="Umanji"
                   >
