@@ -29,8 +29,8 @@ export default function Navbar() {
           <Image
             src="/logo-spdent.png"
             alt="SP DENT"
-            width={100}
-            height={40}
+            width={60}
+            height={24}
             className="object-contain brightness-0 invert"
             priority
           />
