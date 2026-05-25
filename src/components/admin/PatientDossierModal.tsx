@@ -144,7 +144,7 @@ export default function PatientDossierModal({ patient: initialPatient, onClose }
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [editingApptId, setEditingApptId] = useState<string | null>(null)
   const [editDatetime, setEditDatetime] = useState<string>('')
-  const [editDoctor, setEditDoctor] = useState<string>('dr Slaviša')
+  const [editDoctor, setEditDoctor] = useState<string>('dr Slaviša Petković')
 
   const handleDeletePatient = async () => {
     setIsSubmitting(true)
@@ -161,7 +161,7 @@ export default function PatientDossierModal({ patient: initialPatient, onClose }
   }
 
   // Catalog State
-  const [selectedDoctor, setSelectedDoctor] = useState<string>('dr Slaviša')
+  const [selectedDoctor, setSelectedDoctor] = useState<string>('dr Slaviša Petković')
   const [selectedServices, setSelectedServices] = useState<string[]>([])
 
   // Systemic anamnesis alerts
@@ -553,8 +553,8 @@ export default function PatientDossierModal({ patient: initialPatient, onClose }
                       name="doctor_name"
                       className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500/50 text-sm outline-none"
                     >
-                      <option value="dr Slaviša">dr Slaviša</option>
-                      <option value="Dr. Nebojša Kostić">Dr. Nebojša Kostić</option>
+                      <option value="dr Slaviša Petković">dr Slaviša Petković</option>
+                      <option value="dr Nebojša Kostić">dr Nebojša Kostić</option>
                     </select>
                   </div>
 
@@ -642,8 +642,8 @@ export default function PatientDossierModal({ patient: initialPatient, onClose }
                                   onChange={e => setEditDoctor(e.target.value)}
                                   className="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs outline-none focus:ring-1 focus:ring-sky-500/50"
                                 >
-                                  <option value="dr Slaviša">dr Slaviša</option>
-                                  <option value="Dr. Nebojša Kostić">Dr. Nebojša Kostić</option>
+                                  <option value="dr Slaviša Petković">dr Slaviša Petković</option>
+                                  <option value="dr Nebojša Kostić">dr Nebojša Kostić</option>
                                 </select>
                               </div>
                             </div>
@@ -702,7 +702,7 @@ export default function PatientDossierModal({ patient: initialPatient, onClose }
                                 onClick={() => {
                                   setEditingApptId(appt.id)
                                   setEditDatetime(toLocalDatetimeString(appt.appointment_datetime))
-                                  setEditDoctor(appt.doctor_name || 'dr Slaviša')
+                                  setEditDoctor(appt.doctor_name || 'dr Slaviša Petković')
                                 }}
                                 className="p-1.5 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
                                 title="Izmeni termin"
@@ -757,7 +757,7 @@ export default function PatientDossierModal({ patient: initialPatient, onClose }
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-slate-300 mb-2">Ordinirajući stomatolog *</label>
                   <div className="flex gap-3">
-                    {['dr Slaviša', 'Dr. Nebojša Kostić'].map((doc) => {
+                    {['dr Slaviša Petković', 'dr Nebojša Kostić'].map((doc) => {
                       const active = selectedDoctor === doc
                       return (
                         <button

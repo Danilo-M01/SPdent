@@ -61,7 +61,7 @@ export default function TerminiClient({
     const minutes = String(dt.getUTCMinutes()).padStart(2, '0')
     
     setEditDatetime(`${year}-${month}-${day}T${hours}:${minutes}`)
-    setEditDoctor(appt.doctor_name || 'dr Slaviša')
+    setEditDoctor(appt.doctor_name || 'dr Slaviša Petković')
     setEditingApptId(appt.id)
     setError(null)
     setSuccessMsg(null)
