@@ -132,7 +132,6 @@ export default function AddPatientModal({ onClose }: AddPatientModalProps) {
                 id="modal-parent"
                 name="parent_name"
                 type="text"
-                placeholder="Za maloletnike"
                 className={inputClass}
               />
             </div>
@@ -155,7 +154,7 @@ export default function AddPatientModal({ onClose }: AddPatientModalProps) {
             {/* Medicinska upozorenja — full width, highlighted */}
             <div>
               <label htmlFor="modal-alerts" className={labelClass}>
-                <span className="text-red-400">⚠️ Medicinska upozorenja / Alergije (slobodan tekst)</span>
+                <span className="text-red-400">⚠️ Medicinska upozorenja / Alergije</span>
               </label>
               <textarea
                 id="modal-alerts"
@@ -163,56 +162,6 @@ export default function AddPatientModal({ onClose }: AddPatientModalProps) {
                 rows={2}
                 placeholder="npr. Alergija na penicilin, dijabetes..."
                 className={`${inputClass} resize-none`}
-              />
-            </div>
-
-            {/* Sistematska anamneza */}
-            <div>
-              <p className="text-xs font-semibold text-slate-400 mb-2">Sistematska anamneza</p>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { name: 'has_hypertension',     label: '🫀 Hipertenzija' },
-                  { name: 'has_diabetes',          label: '🩸 Dijabetes' },
-                  { name: 'takes_anticoagulants',  label: '💊 Antikoagulansi' },
-                  { name: 'penicillin_allergy',    label: '⚠️ Alergija na Penicilin' },
-                ].map(({ name, label }) => (
-                  <label key={name} className="flex items-center gap-2 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      name={name}
-                      value="true"
-                      className="w-4 h-4 rounded border-white/10 bg-slate-800 accent-red-500 cursor-pointer"
-                    />
-                    <span className="text-sm text-slate-300 group-hover:text-white transition-colors">{label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Saglasnost */}
-            <div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="consent_signed"
-                  value="true"
-                  className="w-4 h-4 rounded border-white/10 bg-slate-800 accent-sky-500 cursor-pointer"
-                />
-                <span className="text-sm text-slate-300">Pacijent je potpisao saglasnost za tretman (GDPR)</span>
-              </label>
-            </div>
-
-            {/* Dug */}
-            <div>
-              <label htmlFor="modal-debt" className={labelClass}>Početni dug (RSD)</label>
-              <input
-                id="modal-debt"
-                name="total_debt"
-                type="number"
-                min="0"
-                step="0.01"
-                defaultValue="0"
-                className={inputClass}
               />
             </div>
 

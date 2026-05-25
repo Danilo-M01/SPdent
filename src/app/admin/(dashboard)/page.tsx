@@ -24,6 +24,7 @@ export interface Patient {
   consent_signed: boolean
   // Computed / joined
   next_appointment?: string | null
+  next_appointment_doctor?: string | null
   latest_report_at?: string | null
 }
 
@@ -79,7 +80,7 @@ export default async function AdminDashboardPage({
   // Fetch upcoming appointments → next_appointment per patient
   const { data: upcomingAppts } = await supabase
     .from('appointments')
-    .select('patient_id, appointment_datetime')
+    .select('patient_id, appointment_datetime, doctor_name')
     .gte('appointment_datetime', today.toISOString())
     .order('appointment_datetime', { ascending: true })
 
@@ -111,6 +112,7 @@ export default async function AdminDashboardPage({
     return {
       ...p,
       next_appointment: nextAppt?.appointment_datetime ?? null,
+      next_appointment_doctor: nextAppt?.doctor_name ?? null,
       latest_report_at: latestReport?.max_created ?? null,
     }
   }) as Patient[]

@@ -17,8 +17,8 @@ export default function AdminLoading() {
       </div>
 
       {/* Stats Grid Skeleton */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {[...Array(4)].map((_, i) => (
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 max-w-4xl">
+        {[...Array(3)].map((_, i) => (
           <div
             key={i}
             className="bg-slate-900/40 border border-white/5 rounded-xl p-4 flex items-center justify-between gap-4 h-20"

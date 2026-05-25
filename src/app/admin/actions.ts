@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import {
   sanitizeText,
   sanitizePhone,
@@ -581,3 +582,86 @@ export async function addClinicalReport(
     return { success: false, error: 'Došlo je do neočekivane greške na serveru.' }
   }
 }
+
+// ---------------------------------------------------------------------------
+// STORAGE ACTIONS (Bypass RLS using Service Role Key)
+// ---------------------------------------------------------------------------
+
+function createAdminClient() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
+
+export async function uploadXRay(formData: FormData): Promise<{ success: boolean; file?: any; error?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, error: 'Neautorizovan pristup.' }
+    }
+
+    const file = formData.get('file') as File
+    const patientId = formData.get('patientId') as string
+    if (!file || !patientId) {
+      return { success: false, error: 'Nedostaje fajl ili ID pacijenta.' }
+    }
+
+    const adminClient = createAdminClient()
+    const timestamp = Date.now()
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const path = `patients/${patientId}/${timestamp}_${safeName}`
+
+    const buffer = Buffer.from(await file.arrayBuffer())
+
+    const { error: uploadError } = await adminClient.storage
+      .from('xrays')
+      .upload(path, buffer, {
+        upsert: false,
+        contentType: file.type,
+      })
+
+    if (uploadError) {
+      return { success: false, error: uploadError.message }
+    }
+
+    const { data: urlData } = adminClient.storage.from('xrays').getPublicUrl(path)
+
+    return {
+      success: true,
+      file: {
+        name: file.name,
+        url: urlData.publicUrl,
+        type: file.type,
+        uploadedAt: new Date().toISOString(),
+        path,
+      }
+    }
+  } catch (err: any) {
+    console.error('[uploadXRay] error:', err)
+    return { success: false, error: err.message || 'Greška pri uploadu.' }
+  }
+}
+
+export async function deleteXRay(path: string): Promise<ActionResult> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, error: 'Neautorizovan pristup.' }
+    }
+
+    const adminClient = createAdminClient()
+    const { error } = await adminClient.storage.from('xrays').remove([path])
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    return { success: true }
+  } catch (err: any) {
+    console.error('[deleteXRay] error:', err)
+    return { success: false, error: err.message || 'Greška pri brisanju.' }
+  }
+}
+

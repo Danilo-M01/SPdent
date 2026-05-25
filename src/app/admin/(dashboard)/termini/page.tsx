@@ -24,9 +24,9 @@ interface AppointmentWithPatient {
 }
 
 const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
-  regular: { label: 'Regularni', color: 'bg-slate-500/20 text-slate-300 border-slate-500/30' },
-  implant: { label: 'Implant', color: 'bg-sky-500/20 text-sky-300 border-sky-500/30' },
-  proteza: { label: 'Protetika', color: 'bg-violet-500/20 text-violet-300 border-violet-500/30' },
+  regular: { label: 'Regularni', color: 'bg-slate-500/20 text-slate-300' },
+  implant: { label: 'Implant', color: 'bg-sky-500/20 text-sky-300' },
+  proteza: { label: 'Protetika', color: 'bg-violet-500/20 text-violet-300' },
 }
 
 function formatTime(iso: string) {
@@ -195,35 +195,36 @@ export default async function TerminiPage() {
                                 {appt.patient?.phone?.startsWith('/') ? '/' : appt.patient?.phone}
                               </p>
                             </div>
-                            <div className="flex flex-wrap gap-2 shrink-0">
-                              {catInfo && (
-                                <span className={`text-xs px-2 py-0.5 rounded-md border font-medium ${catInfo.color}`}>
-                                  {catInfo.label}
-                                </span>
-                              )}
-                              {appt.reminder_sent && (
-                                <span className="text-xs px-2 py-0.5 rounded-md border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 font-medium">
-                                  ✓ SMS
+                            <div className="flex flex-col items-end gap-1.5 shrink-0">
+                              <div className="flex flex-wrap gap-2 justify-end">
+                                {catInfo && (
+                                  <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${catInfo.color}`}>
+                                    {catInfo.label}
+                                  </span>
+                                )}
+                                {appt.reminder_sent && (
+                                  <span className="text-xs px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-medium">
+                                    ✓ SMS
+                                  </span>
+                                )}
+                              </div>
+                              {appt.doctor_name && (
+                                <span className="text-xs text-slate-400 font-medium">
+                                  {appt.doctor_name}
                                 </span>
                               )}
                             </div>
                           </div>
 
-                          {/* Doctor + treatment */}
-                          <div className="flex flex-wrap gap-3 mt-2">
-                            {appt.doctor_name && (
-                              <span className="flex items-center gap-1.5 text-xs text-slate-400">
-                                <Stethoscope size={12} />
-                                {appt.doctor_name}
-                              </span>
-                            )}
-                            {appt.treatment_today && (
+                          {/* Treatment only */}
+                          {appt.treatment_today && (
+                            <div className="flex flex-wrap gap-3 mt-2">
                               <span className="flex items-center gap-1.5 text-xs text-slate-500">
                                 <Clock size={12} />
                                 {appt.treatment_today}
                               </span>
-                            )}
-                          </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
+import { uploadXRay, deleteXRay } from '@/app/admin/actions'
 import { Upload, ImageIcon, FileIcon, ZoomIn, X, Loader2 } from 'lucide-react'
 
 interface XRayFile {
@@ -79,7 +80,6 @@ export default function XRayUploader({ patientId }: XRayUploaderProps) {
     setError(null)
     setUploading(true)
 
-    const supabase = createClient()
     const newFiles: XRayFile[] = []
 
     for (const file of Array.from(fileList)) {
@@ -92,27 +92,18 @@ export default function XRayUploader({ patientId }: XRayUploaderProps) {
         continue
       }
 
-      const timestamp = Date.now()
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-      const path = `patients/${patientId}/${timestamp}_${safeName}`
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('patientId', patientId)
 
-      const { error: uploadError } = await supabase.storage
-        .from('xrays')
-        .upload(path, file, { upsert: false, contentType: file.type })
+      const result = await uploadXRay(formData)
 
-      if (uploadError) {
-        setError(`Greška pri uploadu: ${uploadError.message}`)
+      if (!result.success || !result.file) {
+        setError(`Greška pri uploadu: ${result.error || 'Nepoznata greška'}`)
         continue
       }
 
-      const { data: urlData } = supabase.storage.from('xrays').getPublicUrl(path)
-      newFiles.push({
-        name: file.name,
-        url: urlData.publicUrl,
-        type: file.type,
-        uploadedAt: new Date().toISOString(),
-        path,
-      })
+      newFiles.push(result.file)
     }
 
     setFiles(prev => [...newFiles, ...prev])
@@ -120,8 +111,11 @@ export default function XRayUploader({ patientId }: XRayUploaderProps) {
   }
 
   const handleDelete = async (file: XRayFile) => {
-    const supabase = createClient()
-    await supabase.storage.from('xrays').remove([file.path])
+    const result = await deleteXRay(file.path)
+    if (!result.success) {
+      setError(`Greška pri brisanju: ${result.error || 'Nepoznata greška'}`)
+      return
+    }
     setFiles(prev => prev.filter(f => f.path !== file.path))
   }
 

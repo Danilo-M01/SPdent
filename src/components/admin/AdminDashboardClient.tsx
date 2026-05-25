@@ -25,14 +25,13 @@ interface AdminDashboardClientProps {
 }
 
 const CATEGORY_META: Record<string, { label: string; color: string }> = {
-  regular: { label: 'Regularni pacijenti', color: 'bg-slate-500/20 text-slate-300 border-slate-500/30' },
-  implant: { label: 'Implantologija', color: 'bg-sky-500/20 text-sky-300 border-sky-500/30' },
-  proteza: { label: 'Protetika', color: 'bg-violet-500/20 text-violet-300 border-violet-500/30' },
+  regular: { label: 'Regularni pacijenti', color: 'bg-slate-500/20 text-slate-300' },
+  implant: { label: 'Implantologija', color: 'bg-sky-500/20 text-sky-300' },
+  proteza: { label: 'Protetika', color: 'bg-violet-500/20 text-violet-300' },
 }
 
 const statCards = (stats: Stats) => [
   { label: 'Ukupno pacijenata', value: stats.totalPatients, icon: Users, color: 'sky' },
-  { label: 'Medicinska upozorenja', value: stats.patientsWithAlerts, icon: AlertTriangle, color: 'red' },
   { label: 'Novi ovog meseca', value: stats.newPatientsThisMonth, icon: Users, color: 'amber' },
   { label: 'Termini danas', value: stats.todayAppointments, icon: CalendarDays, color: 'emerald' },
 ]
@@ -161,7 +160,7 @@ export default function AdminDashboardClient({
               </span>
             </div>
             {catMeta && (
-              <span className={`text-xs px-2.5 py-1 rounded-lg border font-medium shrink-0 ${catMeta.color}`}>
+              <span className={`text-[13px] px-3 py-1 rounded-lg font-bold shrink-0 ${catMeta.color}`}>
                 {catMeta.label}
               </span>
             )}
@@ -187,7 +186,7 @@ export default function AdminDashboardClient({
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 max-w-4xl">
         {statCards(stats).map(({ label, value, icon: Icon, color }) => (
           <motion.div
             key={label}

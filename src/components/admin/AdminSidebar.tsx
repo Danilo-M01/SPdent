@@ -118,6 +118,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
           {/* Kontrolna tabla */}
           <Link
             href="/admin"
+            prefetch={true}
             onClick={handleLinkClick}
             className={navLinkClass(isActive('/admin', true) && !currentCategory)}
           >
@@ -131,6 +132,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
           {/* Termini */}
           <Link
             href="/admin/termini"
+            prefetch={true}
             onClick={handleLinkClick}
             className={navLinkClass(isActive('/admin/termini'))}
           >
@@ -161,6 +163,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
                 {/* Svi pacijenti */}
                 <Link
                   href="/admin"
+                  prefetch={true}
                   onClick={handleLinkClick}
                   className={navLinkClass(
                     isCategoryActive(null) && pathname === '/admin' && !currentCategory
@@ -173,6 +176,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
                 {/* Regularni */}
                 <Link
                   href="/admin?category=regular"
+                  prefetch={true}
                   onClick={handleLinkClick}
                   className={navLinkClass(isCategoryActive('regular'))}
                 >
@@ -183,6 +187,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
                 {/* Implantologija */}
                 <Link
                   href="/admin?category=implant"
+                  prefetch={true}
                   onClick={handleLinkClick}
                   className={navLinkClass(isCategoryActive('implant'))}
                 >
@@ -193,6 +198,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
                 {/* Protetika */}
                 <Link
                   href="/admin?category=proteza"
+                  prefetch={true}
                   onClick={handleLinkClick}
                   className={navLinkClass(isCategoryActive('proteza'))}
                 >

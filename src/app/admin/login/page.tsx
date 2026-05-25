@@ -118,7 +118,7 @@ export default function AdminLoginPage() {
         </div>
 
         <p className="text-center text-slate-600 text-xs mt-6">
-          SP DENT &copy; {new Date().getFullYear()} — Pristup samo za ovlašćeno osoblje
+          SP DENT &copy; {new Date().getFullYear()} 
         </p>
       </motion.div>
     </div>

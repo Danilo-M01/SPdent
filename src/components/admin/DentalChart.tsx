@@ -167,8 +167,8 @@ export default function DentalChart({ patientId, initialToothData }: DentalChart
 
   const upperRightX = buildXPositions([...UPPER_RIGHT].reverse()).reverse()
   const upperLeftX  = buildXPositions(UPPER_LEFT).map(x => x + upperRightX[0] + 28 + TOOTH_GAP * 2 + 16)
-  // Build lower right positions directly from LOWER_RIGHT to prevent overlapping due to width mismatches
-  const lowerRightX = buildXPositions(LOWER_RIGHT)
+  // Lower jaw mirrors upper jaw: 41 aligns under 11, 48 aligns under 18, 31 aligns under 21, 38 aligns under 28
+  const lowerRightX = buildXPositions([...LOWER_RIGHT].reverse()).reverse()
   const lowerLeftX  = [...upperLeftX]
 
   const SVG_WIDTH = upperLeftX[upperLeftX.length - 1] + 34 + START_X
@@ -214,9 +214,9 @@ export default function DentalChart({ patientId, initialToothData }: DentalChart
           {/* Upper jaw label */}
           <text x={SVG_WIDTH / 2} y={14} textAnchor="middle" fontSize={9} className="fill-slate-600">GORNJA VILICA</text>
 
-          {/* Center divider */}
-          <line x1={SVG_WIDTH / 2} y1={20} x2={SVG_WIDTH / 2} y2={175} stroke="#334155" strokeWidth={1} strokeDasharray="4 3" />
-          <line x1={20} y1={98} x2={SVG_WIDTH - 20} y2={98} stroke="#334155" strokeWidth={1} strokeDasharray="4 3" />
+          {/* Center divider (solid lines, perfectly centered) */}
+          <line x1={SVG_WIDTH / 2} y1={20} x2={SVG_WIDTH / 2} y2={175} stroke="#334155" strokeWidth={1.5} />
+          <line x1={20} y1={87} x2={SVG_WIDTH - 20} y2={87} stroke="#334155" strokeWidth={1.5} />
 
           {/* Lower jaw label */}
           <text x={SVG_WIDTH / 2} y={192} textAnchor="middle" fontSize={9} className="fill-slate-600">DONJA VILICA</text>

@@ -6,7 +6,7 @@ import AdminErrorBoundary from '@/components/admin/AdminErrorBoundary'
 
 export const metadata: Metadata = {
   title: 'SP DENT Admin | Upravljanje Pacijentima',
-  description: 'Sigurna administrativna zona, SP DENT Dental CRM',
+  description: 'SP DENT Dental CRM',
   robots: { index: false, follow: false }, // Never index admin pages
 }
 
