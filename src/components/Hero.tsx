@@ -52,9 +52,9 @@ export default function Hero() {
           transition={{ duration: 0.8, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
           className="flex flex-col sm:flex-row items-center gap-4"
         >
-          <button className="px-8 py-4 bg-accent text-primary font-bold rounded-full text-lg hover:bg-white transition-colors flex items-center gap-2">
+          <a href="#kontakt" className="px-8 py-4 bg-accent text-primary font-bold rounded-full text-lg hover:bg-white transition-colors flex items-center gap-2">
             Kontaktirajte nas <ArrowRight className="w-5 h-5" />
-          </button>
+          </a>
         </motion.div>
       </div>
 

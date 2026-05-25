@@ -5,7 +5,7 @@ import { ArrowRight, MapPin, Phone, Mail } from "lucide-react";
 
 export default function Contact() {
   return (
-    <section className="py-32 bg-secondary text-primary relative">
+    <section id="kontakt" className="py-32 bg-secondary text-primary relative">
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
         <div>
           {/* Info Side */}
@@ -21,7 +21,7 @@ export default function Contact() {
             Zakažite konsultacije i saznajte kako možemo da transformišemo vaš osmeh. Bez obaveza, u prijatnom okruženju.
           </p>
 
-          <div className="space-y-6">
+          <div className="space-y-6 max-w-md">
             <div className="flex items-center gap-4 p-4 rounded-2xl bg-white shadow-sm border border-black/5">
               <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center text-accent">
                 <MapPin className="w-6 h-6" />
