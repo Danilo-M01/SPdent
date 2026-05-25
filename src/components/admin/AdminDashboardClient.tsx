@@ -161,7 +161,7 @@ export default function AdminDashboardClient({
             </div>
             {catMeta && (
               <span className={`text-base font-bold shrink-0 pl-1 ${catMeta.color}`}>
-                — {catMeta.label}
+                {catMeta.label}
               </span>
             )}
           </div>
