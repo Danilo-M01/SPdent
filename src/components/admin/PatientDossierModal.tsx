@@ -880,7 +880,7 @@ export default function PatientDossierModal({ patient: initialPatient, onClose }
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-400 mb-1.5">Ime roditelja (ako je pacijent dete)</label>
+                    <label className="block text-sm font-medium text-slate-400 mb-1.5">Ime roditelja</label>
                     <input name="parent_name" defaultValue={patient.parent_name || ''} className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/50" />
                   </div>
                   <div className="sm:col-span-2">
