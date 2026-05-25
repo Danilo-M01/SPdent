@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { CalendarDays, Clock, Stethoscope } from 'lucide-react'
+import { CalendarDays } from 'lucide-react'
+import TerminiClient from '@/components/admin/TerminiClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -157,77 +158,13 @@ export default async function TerminiPage() {
                 </div>
 
                 {/* Appointments */}
-                <div className="space-y-3">
-                  {dayAppts.map((appt) => {
-                    const catInfo = CATEGORY_LABELS[appt.patient?.category ?? 'regular']
-                    const isPast = new Date(appt.appointment_datetime) < new Date()
-
-                    return (
-                      <div
-                        key={appt.id}
-                        className={`flex items-start gap-4 p-4 rounded-2xl border transition-all ${
-                          isPast
-                            ? 'bg-slate-900/30 border-white/5 opacity-60'
-                            : 'bg-slate-900/70 border-white/10 hover:border-white/20'
-                        }`}
-                      >
-                        {/* Time column */}
-                        <div className="shrink-0 w-16 text-center">
-                          <div className={`text-xl font-bold ${isPast ? 'text-slate-500' : 'text-sky-400'}`}>
-                            {formatTime(appt.appointment_datetime)}
-                          </div>
-                          <div className="text-slate-600 text-xs mt-0.5">
-                            {isPast ? 'Prošlo' : 'h'}
-                          </div>
-                        </div>
-
-                        {/* Divider */}
-                        <div className={`w-px self-stretch ${isPast ? 'bg-slate-800' : 'bg-sky-500/30'}`} />
-
-                        {/* Patient info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2 flex-wrap">
-                            <div>
-                              <p className="text-white font-semibold leading-tight">
-                                {appt.patient?.first_name} {appt.patient?.last_name ?? ''}
-                              </p>
-                              <p className="text-slate-500 text-xs mt-0.5 font-mono">
-                                {appt.patient?.phone?.startsWith('/') ? '/' : appt.patient?.phone}
-                              </p>
-                            </div>
-                            <div className="flex flex-col items-end gap-1 shrink-0">
-                              {catInfo && (
-                                <span className={`text-xs font-medium ${catInfo.color}`}>
-                                  {catInfo.label}
-                                </span>
-                              )}
-                              {appt.doctor_name && (
-                                <span className="text-xs text-slate-500 font-medium">
-                                  {appt.doctor_name}
-                                </span>
-                              )}
-                              {appt.reminder_sent && (
-                                <span className="text-xs text-emerald-400 font-medium mt-1">
-                                  ✓ SMS Poslat
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Treatment only */}
-                          {appt.treatment_today && (
-                            <div className="flex flex-wrap gap-3 mt-2">
-                              <span className="flex items-center gap-1.5 text-xs text-slate-500">
-                                <Clock size={12} />
-                                {appt.treatment_today}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
+                <TerminiClient
+                  appointments={dayAppts}
+                  dateKey={dateKey}
+                  today={today}
+                  CATEGORY_LABELS={CATEGORY_LABELS}
+                  formatTime={formatTime}
+                />
               </div>
             )
           })}

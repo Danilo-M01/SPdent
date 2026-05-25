@@ -731,3 +731,91 @@ export async function deleteXRay(path: string): Promise<ActionResult> {
   }
 }
 
+/**
+ * Delete an appointment.
+ */
+export async function deleteAppointment(appointmentId: string): Promise<ActionResult> {
+  try {
+    const supabase = await createClient()
+    
+    // First, find the patient ID of the appointment to revalidate their page
+    const { data: appt, error: findError } = await supabase
+      .from('appointments')
+      .select('patient_id')
+      .eq('id', appointmentId)
+      .single()
+
+    if (findError || !appt) {
+      return { success: false, error: 'Termin nije pronađen.' }
+    }
+
+    const { error } = await supabase
+      .from('appointments')
+      .delete()
+      .eq('id', appointmentId)
+
+    if (error) {
+      console.error('[deleteAppointment] DB Error:', error.message)
+      return { success: false, error: 'Greška pri brisanju termina.' }
+    }
+
+    revalidatePath('/admin')
+    revalidatePath(`/admin/patients/${appt.patient_id}`)
+    return { success: true }
+  } catch (err) {
+    console.error('[deleteAppointment] Unexpected:', err)
+    return { success: false, error: 'Došlo je do neočekivane greške na serveru.' }
+  }
+}
+
+/**
+ * Update an appointment date/time and doctor.
+ */
+export async function updateAppointment(
+  appointmentId: string,
+  datetimeRaw: string,
+  doctorName: string | null
+): Promise<ActionResult> {
+  try {
+    if (!datetimeRaw) return { success: false, error: 'Datum i vreme su obavezni.' }
+
+    const dt = parseBelgradeDateTime(datetimeRaw)
+    if (isNaN(dt.getTime())) {
+      return { success: false, error: 'Neispravan datum ili vreme.' }
+    }
+
+    const supabase = await createClient()
+
+    // Find patient ID for revalidation
+    const { data: appt, error: findError } = await supabase
+      .from('appointments')
+      .select('patient_id')
+      .eq('id', appointmentId)
+      .single()
+
+    if (findError || !appt) {
+      return { success: false, error: 'Termin nije pronađen.' }
+    }
+
+    const { error } = await supabase
+      .from('appointments')
+      .update({
+        appointment_datetime: dt.toISOString(),
+        doctor_name: doctorName || null,
+      })
+      .eq('id', appointmentId)
+
+    if (error) {
+      console.error('[updateAppointment] DB Error:', error.message)
+      return { success: false, error: 'Greška pri izmeni termina.' }
+    }
+
+    revalidatePath('/admin')
+    revalidatePath(`/admin/patients/${appt.patient_id}`)
+    return { success: true }
+  } catch (err) {
+    console.error('[updateAppointment] Unexpected:', err)
+    return { success: false, error: 'Došlo je do neočekivane greške na serveru.' }
+  }
+}
+

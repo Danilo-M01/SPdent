@@ -18,9 +18,10 @@ import {
   Stethoscope,
   Activity,
   ImageIcon,
+  Trash2,
 } from 'lucide-react'
 import type { Patient } from '@/app/admin/(dashboard)/page'
-import { updatePatient, addClinicalReport, addAppointment, deletePatient } from '@/app/admin/actions'
+import { updatePatient, addClinicalReport, addAppointment, deletePatient, deleteAppointment, updateAppointment } from '@/app/admin/actions'
 import { createClient } from '@/lib/supabase/client'
 
 // Lazy-load heavy components (chart + uploader) for faster initial modal open
@@ -141,6 +142,9 @@ export default function PatientDossierModal({ patient: initialPatient, onClose }
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [editingApptId, setEditingApptId] = useState<string | null>(null)
+  const [editDatetime, setEditDatetime] = useState<string>('')
+  const [editDoctor, setEditDoctor] = useState<string>('dr Slaviša')
 
   const handleDeletePatient = async () => {
     setIsSubmitting(true)
@@ -275,6 +279,18 @@ export default function PatientDossierModal({ patient: initialPatient, onClose }
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(new Date(iso))
+  }
+
+  const toLocalDatetimeString = (isoString: string): string => {
+    const d = new Date(isoString)
+    const formatter = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'Europe/Belgrade',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit',
+      hour12: false
+    })
+    const formatted = formatter.format(d)
+    return formatted.replace(' ', 'T')
   }
 
   return (
@@ -604,8 +620,69 @@ export default function PatientDossierModal({ patient: initialPatient, onClose }
                         }
                       }
 
+                      const isEditing = editingApptId === appt.id
+
+                      if (isEditing) {
+                        return (
+                          <div key={appt.id} className="p-4 rounded-xl bg-slate-900 border border-white/10 flex flex-col gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-medium text-slate-400 mb-1">Datum i Vreme</label>
+                                <input
+                                  type="datetime-local"
+                                  value={editDatetime}
+                                  onChange={e => setEditDatetime(e.target.value)}
+                                  className="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs outline-none focus:ring-1 focus:ring-sky-500/50"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-slate-400 mb-1">Lekar</label>
+                                <select
+                                  value={editDoctor}
+                                  onChange={e => setEditDoctor(e.target.value)}
+                                  className="w-full bg-slate-950 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs outline-none focus:ring-1 focus:ring-sky-500/50"
+                                >
+                                  <option value="dr Slaviša">dr Slaviša</option>
+                                  <option value="dr Petar">dr Petar</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="flex justify-end gap-2 mt-1">
+                              <button
+                                type="button"
+                                onClick={() => setEditingApptId(null)}
+                                className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                              >
+                                Otkaži
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isSubmitting}
+                                onClick={async () => {
+                                  setIsSubmitting(true)
+                                  const res = await updateAppointment(appt.id, editDatetime, editDoctor)
+                                  if (res.success) {
+                                    // Refresh appointments list
+                                    const supabase = createClient()
+                                    const { data } = await supabase.from('appointments').select('*').eq('patient_id', patient.id).order('appointment_datetime', { ascending: false })
+                                    setAppointments(data || [])
+                                    setEditingApptId(null)
+                                  } else {
+                                    alert(res.error || 'Greška pri izmeni termina.')
+                                  }
+                                  setIsSubmitting(false)
+                                }}
+                                className="px-3 py-1 bg-sky-500 hover:bg-sky-400 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer disabled:opacity-55"
+                              >
+                                Sačuvaj
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      }
+
                       return (
-                        <div key={appt.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-950/50 border border-white/5 gap-4">
+                        <div key={appt.id} className="flex items-center justify-between p-4 rounded-xl bg-slate-950/50 border border-white/5 gap-4 group/appt">
                           <div className="flex items-center gap-3">
                             <Clock size={16} className={isFuture ? 'text-emerald-400' : 'text-slate-500'} />
                             <div>
@@ -617,7 +694,46 @@ export default function PatientDossierModal({ patient: initialPatient, onClose }
                               )}
                             </div>
                           </div>
-                          {smsStatus}
+                          <div className="flex items-center gap-3 shrink-0">
+                            {smsStatus}
+                            <div className="flex items-center gap-1 opacity-0 group-hover/appt:opacity-100 transition-opacity">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingApptId(appt.id)
+                                  setEditDatetime(toLocalDatetimeString(appt.appointment_datetime))
+                                  setEditDoctor(appt.doctor_name || 'dr Slaviša')
+                                }}
+                                className="p-1.5 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+                                title="Izmeni termin"
+                              >
+                                <Edit2 size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isSubmitting}
+                                onClick={async () => {
+                                  if (confirm('Da li ste sigurni da želite da obrišete ovaj termin?')) {
+                                    setIsSubmitting(true)
+                                    const res = await deleteAppointment(appt.id)
+                                    if (res.success) {
+                                      // Refresh appointments list
+                                      const supabase = createClient()
+                                      const { data } = await supabase.from('appointments').select('*').eq('patient_id', patient.id).order('appointment_datetime', { ascending: false })
+                                      setAppointments(data || [])
+                                    } else {
+                                      alert(res.error || 'Greška pri brisanju.')
+                                    }
+                                    setIsSubmitting(false)
+                                  }
+                                }}
+                                className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded-lg transition-colors cursor-pointer disabled:opacity-55"
+                                title="Obriši termin"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       )
                     })}
