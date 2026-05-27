@@ -16,7 +16,7 @@ import {
   Menu,
   X,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface AdminSidebarProps {
   userEmail: string
@@ -30,6 +30,16 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
   const [patientsOpen, setPatientsOpen] = useState(
     pathname === '/admin' || !pathname.startsWith('/admin/termini')
   )
+
+  useEffect(() => {
+    const handleToggle = () => {
+      setIsMobileOpen(prev => !prev)
+    }
+    window.addEventListener('toggle-admin-sidebar', handleToggle)
+    return () => {
+      window.removeEventListener('toggle-admin-sidebar', handleToggle)
+    }
+  }, [])
 
   const isActive = (href: string, exact = false) =>
     exact ? pathname === href : pathname.startsWith(href)
@@ -81,7 +91,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
         </button>
       </div>
 
-      {/* Zatamnjeni overlay (štiti pozadinu na mobilnim uređajima) */}
+      {/* Zatamnjeni overlay (štiti pozadinu na mobilnim uređajima i na termini desktopu) */}
       <AnimatePresence>
         {isMobileOpen && (
           <motion.div
@@ -89,14 +99,18 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsMobileOpen(false)}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+            className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 ${pathname === '/admin/termini' ? '' : 'lg:hidden'}`}
           />
         )}
       </AnimatePresence>
 
       {/* Sidebar kontejner */}
       <aside
-        className={`fixed inset-y-0 left-0 w-64 z-50 flex flex-col bg-slate-900/95 backdrop-blur-2xl border-r border-white/5 shadow-2xl transition-transform duration-300 ease-in-out lg:static lg:h-screen lg:w-64 lg:bg-slate-900/80 lg:shadow-none lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 w-64 z-50 flex flex-col bg-slate-900/95 backdrop-blur-2xl border-r border-white/5 shadow-2xl transition-transform duration-300 ease-in-out ${
+          pathname === '/admin/termini'
+            ? ''
+            : 'lg:static lg:h-screen lg:w-64 lg:bg-slate-900/80 lg:shadow-none lg:translate-x-0'
+        } ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

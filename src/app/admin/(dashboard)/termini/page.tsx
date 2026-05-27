@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { CalendarDays } from 'lucide-react'
 import TerminiClient from '@/components/admin/TerminiClient'
 
 export const dynamic = 'force-dynamic'
@@ -9,61 +8,30 @@ export const metadata = {
   title: 'SP DENT — Termini',
 }
 
-interface AppointmentWithPatient {
+interface Patient {
+  id: string
+  first_name: string
+  last_name: string | null
+  phone: string
+  category: string
+}
+
+interface Appointment {
   id: string
   appointment_datetime: string
   doctor_name: string | null
   treatment_today: string | null
   reminder_sent: boolean
-  patient: {
-    id: string
-    first_name: string
-    last_name: string | null
-    phone: string
-    category: string
-  }
+  patient: Patient
 }
 
-const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
-  regular: { label: 'Regularni', color: 'text-slate-400' },
-  implant: { label: 'Implant', color: 'text-sky-400' },
-  proteza: { label: 'Protetika', color: 'text-violet-400' },
-}
-
-function formatTime(iso: string) {
-  return new Intl.DateTimeFormat('sr-RS', {
-    timeZone: 'Europe/Belgrade',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(iso))
-}
-
-function formatDateHeading(iso: string) {
-  const d = new Intl.DateTimeFormat('sr-RS', {
-    timeZone: 'Europe/Belgrade',
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date(iso))
-  return d.charAt(0).toUpperCase() + d.slice(1)
-}
-
-function isoToDateKey(iso: string) {
-  // Group by Belgrade date (YYYY-MM-DD)
-  return new Intl.DateTimeFormat('sv-SE', {
-    timeZone: 'Europe/Belgrade',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(iso))
-}
-
-function isToday(dateKey: string) {
-  const todayKey = new Intl.DateTimeFormat('sv-SE', {
-    timeZone: 'Europe/Belgrade',
-  }).format(new Date())
-  return dateKey === todayKey
+// Default patient placeholder for appointments with missing/invalid patient data
+const UNKNOWN_PATIENT: Patient = {
+  id: 'unknown',
+  first_name: 'Nepoznat',
+  last_name: 'pacijent',
+  phone: '/',
+  category: 'regular',
 }
 
 export default async function TerminiPage() {
@@ -71,11 +39,11 @@ export default async function TerminiPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/admin/login')
 
-  // Belgrade midnight for today
-  const todayMidnight = new Date()
-  todayMidnight.setHours(0, 0, 0, 0)
+  // Load appointments from 90 days ago onwards to support viewing past/present/future weeks & months
+  const startRange = new Date()
+  startRange.setDate(startRange.getDate() - 90)
 
-  const { data: appointments, error } = await supabase
+  const { data: rawAppointments, error } = await supabase
     .from('appointments')
     .select(`
       id,
@@ -91,84 +59,57 @@ export default async function TerminiPage() {
         category
       )
     `)
-    .gte('appointment_datetime', todayMidnight.toISOString())
+    .gte('appointment_datetime', startRange.toISOString())
     .order('appointment_datetime', { ascending: true })
 
   if (error) {
     console.error('[TerminiPage] fetch error:', error.message)
   }
 
-  const appts = (appointments as unknown as AppointmentWithPatient[]) ?? []
+  // Normalize: Supabase join can return null, an array, or an object for `patient`.
+  // Ensure every appointment has a valid `patient` object to prevent client-side crashes.
+  const appointments: Appointment[] = (rawAppointments || []).map((raw: Record<string, unknown>) => {
+    let patient: Patient = UNKNOWN_PATIENT
+    
+    if (raw.patient) {
+      // Supabase sometimes returns an array for joins — take the first element
+      const p = Array.isArray(raw.patient) ? raw.patient[0] : raw.patient
+      if (p && typeof p === 'object' && 'id' in p) {
+        patient = {
+          id: String((p as Record<string, unknown>).id || 'unknown'),
+          first_name: String((p as Record<string, unknown>).first_name || 'Nepoznat'),
+          last_name: (p as Record<string, unknown>).last_name ? String((p as Record<string, unknown>).last_name) : null,
+          phone: String((p as Record<string, unknown>).phone || '/'),
+          category: String((p as Record<string, unknown>).category || 'regular'),
+        }
+      }
+    }
+    
+    return {
+      id: String(raw.id),
+      appointment_datetime: String(raw.appointment_datetime),
+      doctor_name: raw.doctor_name ? String(raw.doctor_name) : null,
+      treatment_today: raw.treatment_today ? String(raw.treatment_today) : null,
+      reminder_sent: Boolean(raw.reminder_sent),
+      patient,
+    }
+  })
 
-  // Group by date
-  const grouped = appts.reduce<Record<string, AppointmentWithPatient[]>>((acc, appt) => {
-    const key = isoToDateKey(appt.appointment_datetime)
-    if (!acc[key]) acc[key] = []
-    acc[key].push(appt)
-    return acc
-  }, {})
+  // Fetch all patients for the quick booking dropdown list (autocomplete)
+  const { data: patients, error: patientsError } = await supabase
+    .from('patients')
+    .select('id, first_name, last_name, phone, category')
+    .order('first_name', { ascending: true })
 
-  const sortedKeys = Object.keys(grouped).sort()
+  if (patientsError) {
+    console.error('[TerminiPage] patients fetch error:', patientsError.message)
+  }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6 pt-20 lg:p-8">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex flex-wrap items-center gap-3 mb-1">
-          <CalendarDays className="text-sky-400" size={24} />
-          <h1 className="text-2xl font-bold text-white tracking-tight">Termini</h1>
-        </div>
-        <p className="text-slate-400 text-sm">
-          Hronološki pregled svih zakazanih termina od danas nadalje
-        </p>
-      </div>
-
-      {appts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-32 text-center">
-          <div className="w-20 h-20 rounded-2xl bg-slate-900 border border-white/5 flex items-center justify-center mb-4">
-            <CalendarDays size={32} className="text-slate-600" />
-          </div>
-          <p className="text-slate-400 font-medium">Nema zakazanih termina</p>
-          <p className="text-slate-600 text-sm mt-1">Termini se dodaju u kartonu pacijenta</p>
-        </div>
-      ) : (
-        <div className="space-y-10 max-w-3xl">
-          {sortedKeys.map((dateKey) => {
-            const dayAppts = grouped[dateKey]
-            const today = isToday(dateKey)
-
-            return (
-              <div key={dateKey}>
-                {/* Day heading */}
-                <div className="flex items-center gap-3 mb-4">
-                  <div className={`px-3 py-1 rounded-lg text-sm font-bold ${
-                    today
-                      ? 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
-                      : 'bg-slate-800 text-slate-400 border border-white/5'
-                  }`}>
-                    {today ? '🗓 Danas' : formatDateHeading(dayAppts[0].appointment_datetime)}
-                  </div>
-                  {today && (
-                    <span className="text-slate-500 text-sm">
-                      {formatDateHeading(dayAppts[0].appointment_datetime)}
-                    </span>
-                  )}
-                  <div className="flex-1 h-px bg-white/5" />
-                  <span className="text-slate-600 text-xs">{dayAppts.length} termin{dayAppts.length !== 1 ? 'a' : ''}</span>
-                </div>
-
-                {/* Appointments */}
-                <TerminiClient
-                  appointments={dayAppts}
-                  dateKey={dateKey}
-                  today={today}
-                  CATEGORY_LABELS={CATEGORY_LABELS}
-                />
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
+    <TerminiClient
+      initialAppointments={appointments}
+      patients={(patients as unknown as Patient[]) || []}
+    />
   )
 }
+

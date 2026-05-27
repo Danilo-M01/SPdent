@@ -555,6 +555,7 @@ export default function PatientDossierModal({ patient: initialPatient, onClose }
                     >
                       <option value="dr Slaviša Petković">dr Slaviša Petković</option>
                       <option value="dr Nebojša Kostić">dr Nebojša Kostić</option>
+                      <option value="dr Đurđina Grujić">dr Đurđina Grujić</option>
                     </select>
                   </div>
 
@@ -644,6 +645,7 @@ export default function PatientDossierModal({ patient: initialPatient, onClose }
                                 >
                                   <option value="dr Slaviša Petković">dr Slaviša Petković</option>
                                   <option value="dr Nebojša Kostić">dr Nebojša Kostić</option>
+                                  <option value="dr Đurđina Grujić">dr Đurđina Grujić</option>
                                 </select>
                               </div>
                             </div>
@@ -757,7 +759,7 @@ export default function PatientDossierModal({ patient: initialPatient, onClose }
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-slate-300 mb-2">Ordinirajući stomatolog *</label>
                   <div className="flex gap-3">
-                    {['dr Slaviša Petković', 'dr Nebojša Kostić'].map((doc) => {
+                    {['dr Slaviša Petković', 'dr Nebojša Kostić', 'dr Đurđina Grujić'].map((doc) => {
                       const active = selectedDoctor === doc
                       return (
                         <button

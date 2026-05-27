@@ -17,6 +17,7 @@ import {
 export type ActionResult = {
   success: boolean
   error?: string
+  id?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -152,7 +153,7 @@ export async function addPatient(
     const safeCategory = validCategories.includes(category) ? category : 'regular'
 
     const supabase = await createClient()
-    const { error } = await supabase.from('patients').insert({
+    const { data, error } = await supabase.from('patients').insert({
       first_name: firstName,
       last_name: lastName || null,
       phone,
@@ -166,7 +167,7 @@ export async function addPatient(
       takes_anticoagulants: takesAnticoagulants,
       penicillin_allergy: penicillinAllergy,
       consent_signed: consentSigned,
-    })
+    }).select('id').single()
 
     if (error) {
       console.error('[addPatient] DB Error:', error.message)
@@ -177,7 +178,7 @@ export async function addPatient(
     }
 
     revalidatePath('/admin')
-    return { success: true }
+    return { success: true, id: data?.id }
   } catch (err) {
     console.error('[addPatient] Unexpected:', err)
     return { success: false, error: 'Došlo je do neočekivane greške na serveru.' }
@@ -302,14 +303,14 @@ export async function addAppointment(
     }
 
     const supabase = await createClient()
-    const { error } = await supabase.from('appointments').insert({
+    const { data, error } = await supabase.from('appointments').insert({
       patient_id: patientId,
       appointment_datetime: dt.toISOString(),
       treatment_today: treatmentToday || null,
       treatment_history: [],
       reminder_sent: false,
       doctor_name: doctorName,
-    })
+    }).select('id').single()
 
     if (error) {
       console.error('[addAppointment] DB Error:', error.message)
@@ -318,7 +319,7 @@ export async function addAppointment(
 
     revalidatePath('/admin')
     revalidatePath(`/admin/patients/${patientId}`)
-    return { success: true }
+    return { success: true, id: data?.id }
   } catch (err) {
     console.error('[addAppointment] Unexpected:', err)
     return { success: false, error: 'Došlo je do neočekivane greške na serveru.' }
