@@ -290,13 +290,29 @@ export default function TerminiClient({
   const [newPhone, setNewPhone] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
 
+  // Patient Filter Search Query (Main Calendar View Filter)
+  const [patientFilterQuery, setPatientFilterQuery] = useState('')
+
   // Filtered Appointments
   const filteredAppointments = useMemo(() => {
-    if (doctorFilter === 'all') return appointments
-    return appointments.filter(
-      (appt) => appt.doctor_name && appt.doctor_name.toLowerCase().includes(doctorFilter.toLowerCase())
-    )
-  }, [appointments, doctorFilter])
+    let list = appointments
+    if (doctorFilter !== 'all') {
+      list = list.filter(
+        (appt) => appt.doctor_name && appt.doctor_name.toLowerCase().includes(doctorFilter.toLowerCase())
+      )
+    }
+    if (patientFilterQuery.trim()) {
+      const q = patientFilterQuery.toLowerCase().trim()
+      list = list.filter((appt) => {
+        if (!appt.patient) return false
+        const firstName = appt.patient.first_name || ''
+        const lastName = appt.patient.last_name || ''
+        const fullName = `${firstName} ${lastName}`.toLowerCase()
+        return fullName.includes(q)
+      })
+    }
+    return list
+  }, [appointments, doctorFilter, patientFilterQuery])
 
   // Autocomplete patient search list
   const filteredPatients = useMemo(() => {
@@ -727,81 +743,45 @@ export default function TerminiClient({
       </AnimatePresence>
 
       {/* Control Toolbar */}
-      <div className="bg-slate-900/60 border border-white/5 rounded-2xl p-4 mb-6 flex flex-col lg:flex-row items-center justify-between gap-4">
-        {/* Navigation & Date Label */}
-        <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-start">
-          <div className="flex items-center gap-1.5 bg-slate-950 border border-white/10 rounded-xl p-1">
-            <button
-              onClick={handlePrev}
-              className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-900 transition-colors cursor-pointer"
-              title="Prethodno"
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <button
-              onClick={handleToday}
-              className="px-3.5 py-1.5 text-xs text-white font-bold bg-slate-900 border border-white/5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
-            >
-              Danas
-            </button>
-            <button
-              onClick={handleNext}
-              className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-900 transition-colors cursor-pointer"
-              title="Sledeće"
-            >
-              <ChevronRight size={20} />
-            </button>
-          </div>
+      <div className="bg-slate-900/60 border border-white/5 rounded-2xl p-4 mb-6 flex flex-col gap-5">
+        {/* Row 1: Navigation & View Mode Buttons */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-white/5 pb-4">
+          {/* Navigation & Date Label */}
+          <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
+            <div className="flex items-center gap-1.5 bg-slate-950 border border-white/10 rounded-xl p-1">
+              <button
+                onClick={handlePrev}
+                className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-900 transition-colors cursor-pointer"
+                title="Prethodno"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <button
+                onClick={handleToday}
+                className="px-3.5 py-1.5 text-xs text-white font-bold bg-slate-900 border border-white/5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Danas
+              </button>
+              <button
+                onClick={handleNext}
+                className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-900 transition-colors cursor-pointer"
+                title="Sledeće"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
 
-          <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
-            {viewMode === 'weekly' ? (
-              `Nedelja: ${weekDays[0].getDate()}. ${new Intl.DateTimeFormat('sr-RS', { month: 'short' }).format(weekDays[0])} - ${weekDays[6].getDate()}. ${new Intl.DateTimeFormat('sr-RS', { month: 'short', year: 'numeric' }).format(weekDays[6])}`
-            ) : (
-              monthLabel
-            )}
-          </h2>
-        </div>
-
-        {/* Filters and View Selectors */}
-        <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto justify-between lg:justify-end">
-          {/* Doctor Selection Pills */}
-          <div className="flex items-center gap-2 bg-slate-950 border border-white/10 rounded-xl p-1 max-w-full overflow-x-auto">
-            <button
-              onClick={() => setDoctorFilter('all')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                doctorFilter === 'all'
-                  ? 'bg-slate-800 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Svi lekari
-            </button>
-            {DOCTORS.map((doc) => {
-              const info = getDoctorColor(doc)
-              const active = doctorFilter === doc
-              return (
-                <button
-                  key={doc}
-                  onClick={() => setDoctorFilter(doc)}
-                  className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                    active
-                      ? `${info.badge} shadow-md`
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  <span className={`w-2 h-2 rounded-full ${
-                    info.accent === 'emerald' ? 'bg-emerald-400' :
-                    info.accent === 'sky' ? 'bg-sky-400' :
-                    info.accent === 'rose' ? 'bg-rose-400' : 'bg-slate-400'
-                  }`} />
-                  {doc?.split(' ')?.[1] || doc} {/* Just show surname for brevity in pills */}
-                </button>
-              )
-            })}
+            <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+              {viewMode === 'weekly' ? (
+                `Nedelja: ${weekDays[0].getDate()}. ${new Intl.DateTimeFormat('sr-RS', { month: 'short' }).format(weekDays[0])} - ${weekDays[6].getDate()}. ${new Intl.DateTimeFormat('sr-RS', { month: 'short', year: 'numeric' }).format(weekDays[6])}`
+              ) : (
+                monthLabel
+              )}
+            </h2>
           </div>
 
           {/* View Mode Buttons */}
-          <div className="flex items-center bg-slate-950 border border-white/10 rounded-xl p-1">
+          <div className="flex items-center bg-slate-950 border border-white/10 rounded-xl p-1 self-end md:self-auto">
             <button
               onClick={() => setViewMode('weekly')}
               className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
@@ -826,6 +806,77 @@ export default function TerminiClient({
             >
               Lista
             </button>
+          </div>
+        </div>
+
+        {/* Row 2: Search Patient & Doctor Selection */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+          {/* Patient Search Input */}
+          <div className="md:col-span-5 flex flex-col gap-1.5">
+            <label htmlFor="appt-patient-filter-input" className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">
+              Pretraži pacijenta
+            </label>
+            <div className="relative">
+              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+              <input
+                id="appt-patient-filter-input"
+                type="text"
+                value={patientFilterQuery}
+                onChange={(e) => setPatientFilterQuery(e.target.value)}
+                placeholder="Unesite ime i prezime pacijenta..."
+                className="w-full bg-slate-950 border border-white/10 hover:border-white/20 focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/20 rounded-xl pl-10 pr-9 py-2.5 text-sm text-white placeholder-slate-500 outline-none transition-all duration-200"
+              />
+              {patientFilterQuery && (
+                <button
+                  onClick={() => setPatientFilterQuery('')}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5 rounded-md hover:bg-white/5 transition-colors cursor-pointer"
+                  title="Očisti pretragu"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Doctor Selection Pills */}
+          <div className="md:col-span-7 flex flex-col gap-1.5">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">
+              Filtriraj po lekaru
+            </label>
+            <div className="flex items-center gap-2 bg-slate-950 border border-white/10 rounded-xl p-1 overflow-x-auto max-w-full">
+              <button
+                onClick={() => setDoctorFilter('all')}
+                className={`px-3.5 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  doctorFilter === 'all'
+                    ? 'bg-slate-800 text-white shadow-md'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Svi lekari
+              </button>
+              {DOCTORS.map((doc) => {
+                const info = getDoctorColor(doc)
+                const active = doctorFilter === doc
+                return (
+                  <button
+                    key={doc}
+                    onClick={() => setDoctorFilter(doc)}
+                    className={`px-3.5 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                      active
+                        ? `${info.badge} shadow-md`
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <span className={`w-2 h-2 rounded-full ${
+                      info.accent === 'emerald' ? 'bg-emerald-400' :
+                      info.accent === 'sky' ? 'bg-sky-400' :
+                      info.accent === 'rose' ? 'bg-rose-400' : 'bg-slate-400'
+                    }`} />
+                    {doc?.split(' ')?.[1] || doc}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
       </div>
