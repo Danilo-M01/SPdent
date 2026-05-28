@@ -56,6 +56,8 @@ export default function AdminDashboardClient({
   const [showImportModal, setShowImportModal] = useState(false)
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
   const [smsStatus, setSmsStatus] = useState<'checking' | 'online' | 'offline'>('checking')
+  const [patients, setPatients] = useState<Patient[]>(initialPatients)
+  const [localStats, setLocalStats] = useState(stats)
 
   useEffect(() => {
     const supabase = createClient()
@@ -95,7 +97,7 @@ export default function AdminDashboardClient({
   }, [])
 
   const filteredPatients = useMemo(() => {
-    let result = initialPatients
+    let result = patients
 
     if (query.trim()) {
       const q = query.toLowerCase().trim()
@@ -128,7 +130,7 @@ export default function AdminDashboardClient({
           return 0
       }
     })
-  }, [query, sortBy, initialPatients])
+  }, [query, sortBy, patients])
 
   const [visibleCount, setVisibleCount] = useState(48)
 
@@ -187,7 +189,7 @@ export default function AdminDashboardClient({
 
       {/* Stats grid */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 max-w-4xl">
-        {statCards(stats).map(({ label, value, icon: Icon, color }) => (
+        {statCards(localStats).map(({ label, value, icon: Icon, color }) => (
           <motion.div
             key={label}
             initial={{ opacity: 0, y: 12 }}
@@ -286,6 +288,11 @@ export default function AdminDashboardClient({
             key={selectedPatient.id}
             patient={selectedPatient}
             onClose={() => setSelectedPatient(null)}
+            onPatientDeleted={(deletedId) => {
+              setPatients(prev => prev.filter(p => p.id !== deletedId))
+              setLocalStats(prev => ({ ...prev, totalPatients: prev.totalPatients - 1 }))
+              setSelectedPatient(null)
+            }}
           />
         )}
       </AnimatePresence>

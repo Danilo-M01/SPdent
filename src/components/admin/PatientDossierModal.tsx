@@ -31,6 +31,7 @@ const XRayUploader = lazy(() => import('./XRayUploader'))
 interface PatientDossierModalProps {
   patient: Patient
   onClose: () => void
+  onPatientDeleted?: (patientId: string) => void
 }
 
 interface ClinicalReport {
@@ -132,7 +133,7 @@ function getServiceTagClass(service: string) {
   return 'border-slate-500/30 text-slate-400 bg-slate-500/5 border'
 }
 
-export default function PatientDossierModal({ patient: initialPatient, onClose }: PatientDossierModalProps) {
+export default function PatientDossierModal({ patient: initialPatient, onClose, onPatientDeleted }: PatientDossierModalProps) {
   const [activeTab, setActiveTab] = useState<'history' | 'appointments' | 'new_report' | 'edit_patient' | 'dental_chart' | 'xrays'>('history')
   const [patient, setPatient] = useState(initialPatient)
   const [reports, setReports] = useState<ClinicalReport[]>([])
@@ -150,9 +151,17 @@ export default function PatientDossierModal({ patient: initialPatient, onClose }
     setIsSubmitting(true)
     setError(null)
     try {
-      await deletePatient(patient.id)
-      onClose()
-      window.location.href = '/admin'
+      const res = await deletePatient(patient.id)
+      if (res.success) {
+        // Notify parent to remove patient from list reactively
+        onPatientDeleted?.(patient.id)
+        setTimeout(() => {
+          onClose()
+        }, 400)
+      } else {
+        setError(res.error || 'Greška pri brisanju pacijenta.')
+        setIsSubmitting(false)
+      }
     } catch (err) {
       console.error(err)
       setError('Greška pri brisanju pacijenta.')

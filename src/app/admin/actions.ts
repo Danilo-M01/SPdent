@@ -258,7 +258,7 @@ export async function updatePatient(
 /**
  * Delete a patient (and all associated appointments via CASCADE).
  */
-export async function deletePatient(patientId: string): Promise<void> {
+export async function deletePatient(patientId: string): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = await createClient()
     const { error } = await supabase
@@ -268,13 +268,15 @@ export async function deletePatient(patientId: string): Promise<void> {
 
     if (error) {
       console.error('[deletePatient] DB Error:', error.message)
+      return { success: false, error: error.message }
     }
   } catch (err) {
     console.error('[deletePatient] Unexpected:', err)
+    return { success: false, error: 'Neočekivana greška pri brisanju.' }
   }
 
   revalidatePath('/admin')
-  redirect('/admin')
+  return { success: true }
 }
 
 // ---------------------------------------------------------------------------
