@@ -6,6 +6,8 @@ import {
   Calendar as CalendarIcon, 
   ChevronLeft, 
   ChevronRight, 
+  ChevronUp,
+  ChevronDown,
   Clock, 
   Edit2, 
   Trash2, 
@@ -292,6 +294,65 @@ export default function TerminiClient({
 
   // Patient Filter Search Query (Main Calendar View Filter)
   const [patientFilterQuery, setPatientFilterQuery] = useState('')
+
+  // Match index for Ctrl+F style appointment navigation
+  const [currentMatchIndex, setCurrentMatchIndex] = useState<number>(-1)
+
+  // Find all appointments matching the search query sorted chronologically
+  const matchingAppointments = useMemo(() => {
+    if (!patientFilterQuery.trim()) return []
+    const q = patientFilterQuery.toLowerCase().trim()
+    return appointments
+      .filter((appt) => {
+        if (!appt.patient) return false
+        const firstName = appt.patient.first_name || ''
+        const lastName = appt.patient.last_name || ''
+        const fullName = `${firstName} ${lastName}`.toLowerCase()
+        return fullName.includes(q)
+      })
+      .sort((a, b) => new Date(a.appointment_datetime).getTime() - new Date(b.appointment_datetime).getTime())
+  }, [appointments, patientFilterQuery])
+
+  // Reset match index when filter query changes
+  useEffect(() => {
+    setCurrentMatchIndex(-1)
+  }, [patientFilterQuery])
+
+  const handleNextMatch = () => {
+    if (matchingAppointments.length === 0) return
+    let nextIndex = 0
+    if (currentMatchIndex !== -1) {
+      nextIndex = (currentMatchIndex + 1) % matchingAppointments.length
+    } else {
+      // Find the first appointment that is >= refDate
+      const nowTime = refDate.getTime()
+      const found = matchingAppointments.findIndex(
+        (appt) => new Date(appt.appointment_datetime).getTime() >= nowTime
+      )
+      nextIndex = found !== -1 ? found : 0
+    }
+    setCurrentMatchIndex(nextIndex)
+    setRefDate(new Date(matchingAppointments[nextIndex].appointment_datetime))
+  }
+
+  const handlePrevMatch = () => {
+    if (matchingAppointments.length === 0) return
+    let prevIndex = matchingAppointments.length - 1
+    if (currentMatchIndex !== -1) {
+      prevIndex = (currentMatchIndex - 1 + matchingAppointments.length) % matchingAppointments.length
+    } else {
+      // Find the last appointment that is < current refDate
+      const nowTime = refDate.getTime()
+      const found = [...matchingAppointments]
+        .reverse()
+        .findIndex((appt) => new Date(appt.appointment_datetime).getTime() < nowTime)
+      if (found !== -1) {
+        prevIndex = matchingAppointments.length - 1 - found
+      }
+    }
+    setCurrentMatchIndex(prevIndex)
+    setRefDate(new Date(matchingAppointments[prevIndex].appointment_datetime))
+  }
 
   // Filtered Appointments
   const filteredAppointments = useMemo(() => {
@@ -824,17 +885,45 @@ export default function TerminiClient({
                 value={patientFilterQuery}
                 onChange={(e) => setPatientFilterQuery(e.target.value)}
                 placeholder="Unesite ime i prezime pacijenta..."
-                className="w-full bg-slate-950 border border-white/10 hover:border-white/20 focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/20 rounded-xl pl-10 pr-9 py-2.5 text-sm text-white placeholder-slate-500 outline-none transition-all duration-200"
+                className="w-full bg-slate-950 border border-white/10 hover:border-white/20 focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/20 rounded-xl pl-10 pr-28 py-2.5 text-sm text-white placeholder-slate-500 outline-none transition-all duration-200"
               />
-              {patientFilterQuery && (
-                <button
-                  onClick={() => setPatientFilterQuery('')}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5 rounded-md hover:bg-white/5 transition-colors cursor-pointer"
-                  title="Očisti pretragu"
-                >
-                  <X size={14} />
-                </button>
-              )}
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 bg-slate-950 pr-1 pl-1.5 py-1 rounded-lg border border-white/5 shadow-inner">
+                {patientFilterQuery && (
+                  <>
+                    <span className="text-[10px] font-black text-slate-400 bg-slate-900 px-1 py-0.5 rounded select-none min-w-[32px] text-center border border-white/5">
+                      {matchingAppointments.length > 0 
+                        ? `${currentMatchIndex !== -1 ? currentMatchIndex + 1 : 0}/${matchingAppointments.length}`
+                        : '0/0'}
+                    </span>
+                    <button
+                      onClick={handlePrevMatch}
+                      disabled={matchingAppointments.length === 0}
+                      className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed"
+                      title="Prethodni termin"
+                    >
+                      <ChevronUp size={14} />
+                    </button>
+                    <button
+                      onClick={handleNextMatch}
+                      disabled={matchingAppointments.length === 0}
+                      className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed"
+                      title="Sledeći termin"
+                    >
+                      <ChevronDown size={14} />
+                    </button>
+                    <span className="w-px h-3 bg-white/10 mx-0.5" />
+                  </>
+                )}
+                {patientFilterQuery && (
+                  <button
+                    onClick={() => setPatientFilterQuery('')}
+                    className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    title="Očisti pretragu"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -950,6 +1039,7 @@ export default function TerminiClient({
                       >
                         {cellAppts.map((appt) => {
                           const docColor = getDoctorColor(appt.doctor_name)
+                          const isHighlighted = matchingAppointments.length > 0 && currentMatchIndex !== -1 && appt.id === matchingAppointments[currentMatchIndex].id
                           return (
                             <div
                               key={appt.id}
@@ -957,7 +1047,9 @@ export default function TerminiClient({
                                 e.stopPropagation() // prevent booking trigger
                                 handleEditClick(appt)
                               }}
-                              className={`p-2 rounded-xl border text-left cursor-pointer transition-all flex flex-col justify-between h-full ${docColor.bg} ${docColor.border}`}
+                              className={`p-2 rounded-xl border text-left cursor-pointer transition-all flex flex-col justify-between h-full ${docColor.bg} ${docColor.border} ${
+                                isHighlighted ? 'ring-2 ring-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.5)] scale-[1.02]' : ''
+                              }`}
                             >
                               <div className="flex items-start justify-between gap-1">
                                 <span className={`text-[10px] font-black uppercase tracking-wider ${docColor.text}`}>
@@ -1055,15 +1147,18 @@ export default function TerminiClient({
                           customCardClasses = 'bg-rose-500/25 border-rose-500/60 text-rose-200 hover:bg-rose-500/35 hover:border-rose-500/80'
                         }
 
+                        const isHighlighted = matchingAppointments.length > 0 && currentMatchIndex !== -1 && appt.id === matchingAppointments[currentMatchIndex].id
                         return (
                           <div
-                            key={appt.id}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleEditClick(appt)
-                            }}
-                            className={`px-2 py-1 rounded-xl border text-[11px] font-black leading-tight flex items-center gap-1.5 hover:scale-[1.02] transition-all cursor-pointer ${customCardClasses}`}
-                          >
+                              key={appt.id}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleEditClick(appt)
+                              }}
+                              className={`px-2 py-1 rounded-xl border text-[11px] font-black leading-tight flex items-center gap-1.5 hover:scale-[1.02] transition-all cursor-pointer ${customCardClasses} ${
+                                isHighlighted ? 'ring-2 ring-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.5)] scale-[1.02]' : ''
+                              }`}
+                            >
                             <span className="shrink-0 font-black px-1.5 py-0.5 bg-slate-950/60 rounded text-[9px] text-white">
                               {formatTime(appt.appointment_datetime)}
                             </span>
@@ -1127,11 +1222,14 @@ export default function TerminiClient({
                         {dayAppts.map((appt) => {
                           const docColor = getDoctorColor(appt.doctor_name)
                           const catInfo = CATEGORY_LABELS[appt.patient?.category ?? 'regular']
+                          const isHighlighted = matchingAppointments.length > 0 && currentMatchIndex !== -1 && appt.id === matchingAppointments[currentMatchIndex].id
                           
                           return (
                             <div 
                               key={appt.id}
-                              className="flex items-start gap-4 py-2 hover:bg-white/2 rounded-xl px-2 transition-colors relative"
+                              className={`flex items-start gap-4 py-2 rounded-xl px-2 transition-all relative ${
+                                isHighlighted ? 'ring-2 ring-sky-400 bg-sky-500/10 shadow-[0_0_15px_rgba(56,189,248,0.55)]' : 'hover:bg-white/2'
+                              }`}
                             >
                               {/* Time display */}
                               <div className="shrink-0 w-16 text-center pt-0.5">
