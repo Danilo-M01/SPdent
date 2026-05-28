@@ -395,6 +395,16 @@ export default function TerminiClient({
       if (!map[key]) map[key] = []
       map[key].push(appt)
     })
+    // Sort each day's appointments by time (earliest first), then by doctor name for same-time slots
+    Object.values(map).forEach(dayAppts => {
+      dayAppts.sort((a, b) => {
+        const timeA = new Date(a.appointment_datetime).getTime()
+        const timeB = new Date(b.appointment_datetime).getTime()
+        if (timeA !== timeB) return timeA - timeB
+        // Same time → sort by doctor name so they appear grouped together
+        return (a.doctor_name || '').localeCompare(b.doctor_name || '')
+      })
+    })
     return map
   }, [filteredAppointments])
 
