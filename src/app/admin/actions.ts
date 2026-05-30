@@ -777,7 +777,8 @@ export async function deleteAppointment(appointmentId: string): Promise<ActionRe
 export async function updateAppointment(
   appointmentId: string,
   datetimeRaw: string,
-  doctorName: string | null
+  doctorName: string | null,
+  treatmentToday?: string | null
 ): Promise<ActionResult> {
   try {
     if (!datetimeRaw) return { success: false, error: 'Datum i vreme su obavezni.' }
@@ -805,6 +806,7 @@ export async function updateAppointment(
       .update({
         appointment_datetime: dt.toISOString(),
         doctor_name: doctorName || null,
+        treatment_today: treatmentToday || null,
       })
       .eq('id', appointmentId)
 

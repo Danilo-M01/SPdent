@@ -215,6 +215,7 @@ export default function TerminiClient({
   const [editDate, setEditDate] = useState<string>('')
   const [editTime, setEditTime] = useState<string>('10:00')
   const [editDoctor, setEditDoctor] = useState<string>('')
+  const [editTreatment, setEditTreatment] = useState<string>('')
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
 
   // Booking Modal States
@@ -655,6 +656,7 @@ export default function TerminiClient({
     setEditTime(`${h}:${mi}`)
     setEditDatetime(`${y}-${mo}-${d}T${h}:${mi}`)
     setEditDoctor(appt.doctor_name || DOCTORS[0])
+    setEditTreatment(appt.treatment_today || '')
     setEditingAppt(appt)
     setErrorMsg(null)
     setSuccessMsg(null)
@@ -664,7 +666,7 @@ export default function TerminiClient({
   const handleSaveEdit = async () => {
     if (!editDatetime) return
     setIsSubmitting(true)
-    const res = await updateAppointment(editingAppt!.id, editDatetime, editDoctor)
+    const res = await updateAppointment(editingAppt!.id, editDatetime, editDoctor, editTreatment)
     setIsSubmitting(false)
     if (res.success) {
       setSuccessMsg('Termin uspešno izmenjen!')
@@ -676,7 +678,8 @@ export default function TerminiClient({
           return {
             ...appt,
             appointment_datetime: formattedIso,
-            doctor_name: editDoctor
+            doctor_name: editDoctor,
+            treatment_today: editTreatment || null
           }
         }
         return appt
@@ -1047,24 +1050,24 @@ export default function TerminiClient({
                                 e.stopPropagation() // prevent booking trigger
                                 handleEditClick(appt)
                               }}
-                              className={`p-2 rounded-xl border text-left cursor-pointer transition-all flex flex-col justify-between h-full ${docColor.bg} ${docColor.border} ${
+                              className={`p-2 rounded-xl border text-left cursor-pointer transition-all flex flex-col gap-0.5 min-h-[52px] h-auto w-full ${docColor.bg} ${docColor.border} ${
                                 isHighlighted ? 'ring-2 ring-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.5)] scale-[1.02]' : ''
                               }`}
                             >
-                              <div className="flex items-start justify-between gap-1">
+                              <div className="flex items-center justify-between gap-1 w-full">
                                 <span className={`text-[10px] font-black uppercase tracking-wider ${docColor.text}`}>
                                   {formatTime(appt.appointment_datetime)} h
                                 </span>
-                                <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full ${docColor.badge}`}>
+                                <span className={`text-[9.5px] font-extrabold px-1.5 py-0.25 rounded-full ${docColor.badge}`}>
                                   {appt.doctor_name?.split(' ')?.[1] || 'Zubar'}
                                 </span>
                               </div>
-                              <p className="text-white text-xs font-black truncate mt-1 leading-tight">
+                              <p className="text-white text-[12.5px] font-black truncate mt-0.5 leading-tight">
                                 {appt.patient?.first_name} {appt.patient?.last_name || ''}
                               </p>
                               {appt.treatment_today && (
-                                <p className="text-slate-400 text-[10px] truncate mt-0.5 leading-tight font-medium">
-                                  {appt.treatment_today}
+                                <p className="text-white/95 text-[10.5px] truncate mt-0.5 leading-tight font-semibold border-t border-white/5 pt-0.5">
+                                  🦷 {appt.treatment_today}
                                 </p>
                               )}
                             </div>
@@ -1155,19 +1158,26 @@ export default function TerminiClient({
                                 e.stopPropagation()
                                 handleEditClick(appt)
                               }}
-                              className={`px-2 py-1 rounded-xl border text-[11px] font-black leading-tight flex items-center gap-1.5 hover:scale-[1.02] transition-all cursor-pointer ${customCardClasses} ${
+                              className={`px-2 py-1 rounded-xl border text-[11.5px] font-black leading-snug flex flex-col gap-0.5 hover:scale-[1.02] transition-all cursor-pointer ${customCardClasses} ${
                                 isHighlighted ? 'ring-2 ring-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.5)] scale-[1.02]' : ''
                               }`}
                             >
-                            <span className="shrink-0 font-black px-1.5 py-0.5 bg-slate-950/60 rounded text-[9px] text-white">
-                              {formatTime(appt.appointment_datetime)}
-                            </span>
-                            <span className="text-white truncate font-black">
-                              {appt.patient?.first_name} {appt.patient?.last_name || ''}
-                            </span>
-                            <span className="text-slate-200 font-bold shrink-0 ml-auto text-[9px] opacity-90">
-                              {appt.doctor_name?.split(' ')?.[1] || 'Zubar'}
-                            </span>
+                            <div className="flex items-center gap-1.5 w-full">
+                              <span className="shrink-0 font-bold px-1.5 py-0.5 bg-slate-950/60 rounded text-[9.5px] text-white">
+                                {formatTime(appt.appointment_datetime)}
+                              </span>
+                              <span className="text-white truncate font-black flex-1 text-[11.5px] ml-1">
+                                {appt.patient?.first_name} {appt.patient?.last_name || ''}
+                              </span>
+                              <span className="text-slate-200 font-bold shrink-0 text-[9.5px] opacity-90 px-1 py-0.25 rounded bg-white/5 border border-white/5">
+                                {appt.doctor_name?.split(' ')?.[1] || 'Zubar'}
+                              </span>
+                            </div>
+                            {appt.treatment_today && (
+                              <div className="text-[10.5px] text-white/95 font-semibold truncate w-full border-t border-white/5 pt-0.5 mt-0.5">
+                                🦷 {appt.treatment_today}
+                              </div>
+                            )}
                           </div>
                         )
                       })}
@@ -1336,24 +1346,24 @@ export default function TerminiClient({
             >
               <div 
                 data-lenis-prevent
-                className="w-full max-w-2xl bg-slate-900 border border-white/10 rounded-3xl shadow-2xl shadow-black/80 max-h-[90vh] overflow-y-auto premium-scrollbar"
+                className="w-full max-w-lg bg-slate-900 border border-white/10 rounded-3xl shadow-2xl shadow-black/80 max-h-[90vh] overflow-y-auto premium-scrollbar"
               >
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-5 border-b border-white/5">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center">
-                      <UserPlus size={18} className="text-sky-400" />
+                    <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center">
+                      <UserPlus size={16} className="text-sky-400" />
                     </div>
                     <div>
-                      <h2 className="text-white font-extrabold text-lg">Brzo zakazivanje</h2>
-                      <p className="text-slate-400 text-xs">Popunite podatke u 1-2 klika</p>
+                      <h2 className="text-white font-extrabold text-base">Brzo zakazivanje</h2>
+                      <p className="text-slate-400 text-[11px]">Popunite podatke u 1-2 klika</p>
                     </div>
                   </div>
                   <button 
                     onClick={() => setIsBookOpen(false)}
-                    className="p-2 rounded-xl bg-slate-950 text-slate-400 hover:text-white border border-white/5 cursor-pointer"
+                    className="p-1.5 rounded-lg bg-slate-950 text-slate-400 hover:text-white border border-white/5 cursor-pointer"
                   >
-                    <X size={16} />
+                    <X size={14} />
                   </button>
                 </div>
 
@@ -1390,11 +1400,11 @@ export default function TerminiClient({
                           onFocus={() => setShowDropdown(true)}
                           onClick={() => setShowDropdown(true)}
                           placeholder="Unesite ime pacijenta (npr. Marko Marković)..."
-                          className={`w-full bg-slate-950 border hover:border-white/20 focus:border-sky-500/50 rounded-2xl pl-11 pr-10 py-3.5 text-white outline-none text-base font-bold placeholder-slate-600 transition-colors ${
+                          className={`w-full bg-slate-950 border hover:border-white/20 focus:border-sky-500/50 rounded-xl pl-10 pr-9 py-2.5 text-white outline-none text-sm font-bold placeholder-slate-600 transition-colors ${
                             selectedPatientId ? 'border-emerald-500/50 focus:border-emerald-500/50' : 'border-white/10'
                           }`}
                         />
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
                         {patientSearch && (
                           <button
                             type="button"
@@ -1404,9 +1414,9 @@ export default function TerminiClient({
                               setNewPhone('')
                               setShowDropdown(false)
                             }}
-                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
                           >
-                            <X size={16} />
+                            <X size={14} />
                           </button>
                         )}
                       </div>
@@ -1421,7 +1431,7 @@ export default function TerminiClient({
                               setShowDropdown(false)
                             }}
                           />
-                          <div className="absolute z-30 w-full mt-2 bg-slate-950 border border-white/10 rounded-2xl shadow-2xl shadow-black/80 overflow-hidden divide-y divide-white/5 max-h-60 overflow-y-auto premium-scrollbar">
+                          <div className="absolute z-30 w-full mt-1.5 bg-slate-950 border border-white/10 rounded-xl shadow-2xl shadow-black/80 overflow-hidden divide-y divide-white/5 max-h-56 overflow-y-auto premium-scrollbar">
                             {filteredPatients.map((p) => (
                               <div
                                 key={p.id}
@@ -1431,15 +1441,15 @@ export default function TerminiClient({
                                   setNewPhone(p.phone)
                                   setShowDropdown(false)
                                 }}
-                                className="px-4 py-3.5 hover:bg-slate-900 cursor-pointer flex items-center justify-between gap-3 transition-colors relative z-30"
+                                className="px-3.5 py-2.5 hover:bg-slate-900 cursor-pointer flex items-center justify-between gap-3 transition-colors relative z-30"
                               >
                                 <div>
-                                  <p className="text-white font-extrabold text-sm">{p.first_name} {p.last_name || ''}</p>
-                                  <p className="text-slate-500 text-xs font-mono font-bold mt-0.5">
+                                  <p className="text-white font-extrabold text-xs">{p.first_name} {p.last_name || ''}</p>
+                                  <p className="text-slate-500 text-[10px] font-mono font-bold mt-0.5">
                                     {p.phone?.startsWith('/') ? '/' : p.phone}
                                   </p>
                                 </div>
-                                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                                <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full ${
                                   p.category === 'implant' ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20' :
                                   p.category === 'proteza' ? 'bg-violet-500/10 text-violet-400 border border-violet-500/20' : 'bg-slate-800 text-slate-400'
                                 }`}>
@@ -1470,7 +1480,7 @@ export default function TerminiClient({
                               value={newPhone}
                               onChange={(e) => setNewPhone(e.target.value)}
                               placeholder="npr. +3816..."
-                              className="w-full bg-slate-950 border border-white/10 hover:border-white/20 focus:border-sky-500/50 rounded-2xl px-4 py-3.5 text-white outline-none text-base font-bold placeholder-slate-600 transition-colors"
+                              className="w-full bg-slate-950 border border-white/10 hover:border-white/20 focus:border-sky-500/50 rounded-xl px-3.5 py-2.5 text-white outline-none text-sm font-bold placeholder-slate-600 transition-colors"
                             />
                           </div>
                         </motion.div>
@@ -1478,36 +1488,36 @@ export default function TerminiClient({
                     </AnimatePresence>
 
                     {selectedPatientId && (
-                      <div className="flex items-center gap-2 text-emerald-400 text-sm font-bold bg-emerald-500/10 border border-emerald-500/20 px-4 py-3.5 rounded-2xl">
-                        <Check size={16} />
+                      <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-2.5 rounded-xl">
+                        <Check size={14} />
                         <span>Izabran postojeći pacijent. Telefon: <strong>{newPhone?.startsWith('/') ? '/' : newPhone || '/'}</strong></span>
                       </div>
                     )}
                   </div>
 
                   {/* Standard Appointment Parameters */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Datum *</label>
+                      <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Datum *</label>
                       <input
                         type="date"
                         value={bookDate}
                         onChange={(e) => setBookDate(e.target.value)}
-                        className="w-full bg-slate-950 border border-white/10 rounded-2xl px-4 py-3.5 text-white font-bold outline-none focus:border-sky-500 text-base"
+                        className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-bold outline-none focus:border-sky-500 text-sm"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Vreme *</label>
+                      <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Vreme *</label>
                       {bookingTimeSlots.length === 0 ? (
-                        <div className="w-full bg-red-950/50 border border-red-500/20 rounded-2xl px-4 py-3.5 text-red-400 font-bold text-sm text-center">
-                          Klinika ne radi tog dana
+                        <div className="w-full bg-red-950/50 border border-red-500/20 rounded-xl px-3.5 py-2.5 text-red-400 font-bold text-xs text-center">
+                          Klinika ne radi
                         </div>
                       ) : (
                         <select
                           value={bookTime}
                           onChange={(e) => setBookTime(e.target.value)}
-                          className="w-full bg-slate-950 border border-white/10 rounded-2xl px-4 py-3.5 text-white font-bold outline-none focus:border-sky-500 text-base"
+                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-bold outline-none focus:border-sky-500 text-sm"
                         >
                           {bookingTimeSlots.map((time) => (
                             <option key={time} value={time}>
@@ -1519,11 +1529,11 @@ export default function TerminiClient({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Lekar *</label>
+                      <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Lekar *</label>
                       <select
                         value={bookDoctor}
                         onChange={(e) => setBookDoctor(e.target.value)}
-                        className="w-full bg-slate-950 border border-white/10 rounded-2xl px-4 py-3.5 text-white font-bold outline-none focus:border-sky-500 text-base"
+                        className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-bold outline-none focus:border-sky-500 text-sm"
                       >
                         {DOCTORS.map(d => (
                           <option key={d} value={d}>{d}</option>
@@ -1533,22 +1543,22 @@ export default function TerminiClient({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Planirana intervencija</label>
+                    <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Planirana intervencija</label>
                     <textarea
                       value={bookTreatment}
                       onChange={(e) => setBookTreatment(e.target.value)}
                       placeholder="npr. Kontrola, popravka, brušenje..."
                       rows={2}
-                      className="w-full bg-slate-950 border border-white/10 rounded-2xl px-4 py-3.5 text-white font-bold outline-none focus:border-sky-500 placeholder-slate-600 text-base resize-none"
+                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-bold outline-none focus:border-sky-500 placeholder-slate-600 text-sm resize-none h-16"
                     />
                   </div>
 
                   {/* Booking Submit Actions */}
-                  <div className="flex gap-3 pt-3">
+                  <div className="flex gap-3 pt-2">
                     <button
                       type="button"
                       onClick={() => setIsBookOpen(false)}
-                      className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-sm font-bold transition-colors cursor-pointer"
+                      className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-bold transition-colors cursor-pointer"
                     >
                       Otkaži
                     </button>
@@ -1556,7 +1566,7 @@ export default function TerminiClient({
                       type="button"
                       onClick={handleBookSubmit}
                       disabled={isSubmitting || (!selectedPatientId && !patientSearch.trim()) || bookingTimeSlots.length === 0}
-                      className="flex-1 py-3 bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 text-white rounded-2xl text-sm font-extrabold shadow-lg shadow-sky-500/10 cursor-pointer disabled:cursor-not-allowed transition-all"
+                      className="flex-1 py-2.5 bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 text-white rounded-xl text-sm font-extrabold shadow-lg shadow-sky-500/10 cursor-pointer disabled:cursor-not-allowed transition-all"
                     >
                       {isSubmitting ? 'Zakazivanje...' : 'Zakaži Termin'}
                     </button>
@@ -1586,55 +1596,55 @@ export default function TerminiClient({
               className="fixed inset-0 z-50 flex items-center justify-center p-4"
             >
               <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-3xl p-6 shadow-2xl shadow-black/80 space-y-4">
-                <div className="flex justify-between items-center pb-2 border-b border-white/5">
+                <div className="flex justify-between items-center pb-3 border-b border-white/5">
                   <div>
-                    <h3 className="text-white font-extrabold text-base">Upravljanje terminom</h3>
-                    <p className="text-slate-400 text-xs mt-0.5">
-                      Pacijent: <span className="text-white font-bold">{editingAppt.patient?.first_name} {editingAppt.patient?.last_name || ''}</span>
+                    <h3 className="text-white font-extrabold text-lg">Upravljanje terminom</h3>
+                    <p className="text-slate-400 text-xs mt-1">
+                      Pacijent: <span className="text-white font-bold text-sm">{editingAppt.patient?.first_name} {editingAppt.patient?.last_name || ''}</span>
                     </p>
                   </div>
                   <button
                     onClick={() => setEditingAppt(null)}
                     className="p-1.5 rounded-lg bg-slate-950 border border-white/5 text-slate-400 hover:text-white cursor-pointer"
                   >
-                    <X size={14} />
+                    <X size={16} />
                   </button>
                 </div>
 
                 {successMsg && (
-                  <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs font-bold">
+                  <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-sm font-bold">
                     {successMsg}
                   </div>
                 )}
                 {errorMsg && (
-                  <div className="p-3.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-xs font-bold">
+                  <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-sm font-bold">
                     {errorMsg}
                   </div>
                 )}
 
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-3.5">
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Datum</label>
+                      <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Datum</label>
                       <input
                         type="date"
                         value={editDate}
                         onChange={(e) => setEditDate(e.target.value)}
-                        className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-white font-bold text-sm outline-none focus:border-sky-500"
+                        className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-bold text-sm outline-none focus:border-sky-500 transition-colors"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Vreme</label>
+                      <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Vreme</label>
                       {editTimeSlots.length === 0 ? (
-                        <div className="w-full bg-red-950/50 border border-red-500/20 rounded-xl px-3 py-2.5 text-red-400 font-bold text-sm text-center">
+                        <div className="w-full bg-red-950/50 border border-red-500/20 rounded-xl px-3.5 py-2.5 text-red-400 font-bold text-sm text-center">
                           Zatvoreno
                         </div>
                       ) : (
                         <select
                           value={editTime}
                           onChange={(e) => setEditTime(e.target.value)}
-                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-white font-bold text-sm outline-none focus:border-sky-500"
+                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-bold text-sm outline-none focus:border-sky-500 transition-colors"
                         >
                           {editTimeSlots.map((time) => (
                             <option key={time} value={time}>
@@ -1647,33 +1657,43 @@ export default function TerminiClient({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Lekar</label>
+                    <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Lekar</label>
                     <select
                       value={editDoctor}
                       onChange={(e) => setEditDoctor(e.target.value)}
-                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-white font-bold text-sm outline-none focus:border-sky-500"
+                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-bold text-sm outline-none focus:border-sky-500 transition-colors"
                     >
                       {DOCTORS.map(d => (
                         <option key={d} value={d}>{d}</option>
                       ))}
                     </select>
                   </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Tretman za danas</label>
+                    <textarea
+                      value={editTreatment}
+                      onChange={(e) => setEditTreatment(e.target.value)}
+                      placeholder="npr. Plomba 6-ica, Vadjenje zuba, Pregled..."
+                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-bold text-sm outline-none focus:border-sky-500 resize-none h-20 placeholder-slate-600 transition-colors"
+                    />
+                  </div>
                 </div>
 
-                <div className="flex gap-2 pt-4">
+                <div className="flex gap-3 pt-2">
                   <button
                     onClick={handleSaveEdit}
                     disabled={isSubmitting}
-                    className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors"
+                    className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-sm font-bold cursor-pointer transition-colors"
                   >
                     Sačuvaj izmene
                   </button>
                   <button
                     onClick={() => setDeleteConfirmId(editingAppt.id)}
                     disabled={isSubmitting}
-                    className="py-2.5 px-4 bg-red-950 border border-red-500/20 text-red-400 rounded-xl text-xs font-bold cursor-pointer transition-colors"
+                    className="py-2.5 px-4 bg-red-950 border border-red-500/20 text-red-400 rounded-xl text-sm font-bold cursor-pointer transition-colors"
                   >
-                    Obriši termin
+                    Obriši
                   </button>
                 </div>
               </div>
