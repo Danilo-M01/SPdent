@@ -205,7 +205,7 @@ export default function TerminiClient({
   const [patientsList, setPatientsList] = useState<Patient[]>(patients)
 
   // Navigation & View States
-  const [viewMode, setViewMode] = useState<'weekly' | 'monthly' | 'list'>('monthly')
+  const [viewMode, setViewMode] = useState<'weekly' | 'monthly' | 'list'>('weekly')
   const [refDate, setRefDate] = useState<Date>(new Date())
   const [doctorFilter, setDoctorFilter] = useState<string>('all')
 
@@ -1007,7 +1007,7 @@ export default function TerminiClient({
             {/* Hours Grid */}
             <div className="min-w-[900px]">
               {hourSlots.map((hour) => (
-                <div key={hour} className="grid grid-cols-8 border-b border-white/5 last:border-0 min-h-[76px] items-stretch">
+                <div key={hour} className="grid grid-cols-8 border-b border-white/5 last:border-0 min-h-[60px] items-stretch">
                   {/* Hour display */}
                   <div className="flex items-center justify-center p-3 text-sm font-black text-slate-400 bg-slate-950/20 border-r border-white/5">
                     {hour}
@@ -1034,7 +1034,7 @@ export default function TerminiClient({
                       <div 
                         key={day.toISOString() + '-' + hour} 
                         onClick={() => !isOutsideHours && openBooking(day, hour)}
-                        className={`p-1 border-r border-white/5 last:border-0 min-h-[76px] transition-colors relative flex flex-col gap-1 justify-center ${
+                        className={`p-1 border-r border-white/5 last:border-0 min-h-[60px] transition-colors relative flex flex-col gap-0.5 justify-start pt-1.5 ${
                           isOutsideHours 
                             ? 'bg-slate-950/60 opacity-30 cursor-default' 
                             : 'hover:bg-slate-900/40 cursor-pointer group'
@@ -1047,26 +1047,26 @@ export default function TerminiClient({
                             <div
                               key={appt.id}
                               onClick={(e) => {
-                                e.stopPropagation() // prevent booking trigger
+                                e.stopPropagation()
                                 handleEditClick(appt)
                               }}
-                              className={`p-2 rounded-xl border text-left cursor-pointer transition-all flex flex-col gap-0.5 min-h-[52px] h-auto w-full ${docColor.bg} ${docColor.border} ${
+                              className={`px-1.5 py-1 rounded-lg border text-left cursor-pointer transition-all w-full ${docColor.bg} ${docColor.border} ${
                                 isHighlighted ? 'ring-2 ring-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.5)] scale-[1.02]' : ''
                               }`}
                             >
-                              <div className="flex items-center justify-between gap-1 w-full">
-                                <span className={`text-[10px] font-black uppercase tracking-wider ${docColor.text}`}>
-                                  {formatTime(appt.appointment_datetime)} h
+                              <div className="flex items-center justify-between gap-0.5 w-full">
+                                <span className={`text-[9px] font-black ${docColor.text}`}>
+                                  {formatTime(appt.appointment_datetime)}
                                 </span>
-                                <span className={`text-[9.5px] font-extrabold px-1.5 py-0.25 rounded-full ${docColor.badge}`}>
+                                <span className={`text-[8.5px] font-extrabold px-1 py-px rounded-full ${docColor.badge} leading-none`}>
                                   {appt.doctor_name?.split(' ')?.[1] || 'Zubar'}
                                 </span>
                               </div>
-                              <p className="text-white text-[12.5px] font-black truncate mt-0.5 leading-tight">
+                              <p className="text-white text-[11px] font-black leading-snug break-words">
                                 {appt.patient?.first_name} {appt.patient?.last_name || ''}
                               </p>
                               {appt.treatment_today && (
-                                <p className="text-white/95 text-[10.5px] truncate mt-0.5 leading-tight font-semibold border-t border-white/5 pt-0.5">
+                                <p className="text-white/80 text-[9.5px] leading-tight font-medium border-t border-white/5 pt-0.5 mt-0.5 break-words">
                                   🦷 {appt.treatment_today}
                                 </p>
                               )}
@@ -1077,8 +1077,8 @@ export default function TerminiClient({
                         {/* Plus hover sign */}
                         {cellAppts.length === 0 && !isOutsideHours && (
                           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <div className="w-7 h-7 rounded-full bg-sky-500/10 border border-sky-500/30 flex items-center justify-center">
-                              <Plus className="text-sky-400" size={14} />
+                            <div className="w-6 h-6 rounded-full bg-sky-500/10 border border-sky-500/30 flex items-center justify-center">
+                              <Plus className="text-sky-400" size={12} />
                             </div>
                           </div>
                         )}
@@ -1135,7 +1135,7 @@ export default function TerminiClient({
                     </div>
 
                     {/* Day appointments list: Dynamic height, no scrollbars */}
-                    <div className="flex-1 flex flex-col gap-1.5 pt-0.5 select-none pb-4">
+                    <div className="flex-1 flex flex-col gap-0.5 pt-0.5 select-none pb-4">
                       {dayAppts.map((appt) => {
                         const isSlavisa = appt.doctor_name?.toLowerCase().includes('slaviš') || appt.doctor_name?.toLowerCase().includes('slavis')
                         const isNebojsa = appt.doctor_name?.toLowerCase().includes('nebojš') || appt.doctor_name?.toLowerCase().includes('nebojs')
@@ -1158,23 +1158,23 @@ export default function TerminiClient({
                                 e.stopPropagation()
                                 handleEditClick(appt)
                               }}
-                              className={`px-2 py-1 rounded-xl border text-[11.5px] font-black leading-snug flex flex-col gap-0.5 hover:scale-[1.02] transition-all cursor-pointer ${customCardClasses} ${
+                              className={`px-1.5 py-1 rounded-lg border text-[11px] font-black leading-snug flex flex-col gap-0 hover:scale-[1.01] transition-all cursor-pointer ${customCardClasses} ${
                                 isHighlighted ? 'ring-2 ring-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.5)] scale-[1.02]' : ''
                               }`}
                             >
-                            <div className="flex items-center gap-1.5 w-full">
-                              <span className="shrink-0 font-bold px-1.5 py-0.5 bg-slate-950/60 rounded text-[9.5px] text-white">
+                            <div className="flex items-center gap-1 w-full">
+                              <span className="shrink-0 font-bold px-1 py-px bg-slate-950/60 rounded text-[9px] text-white leading-none">
                                 {formatTime(appt.appointment_datetime)}
                               </span>
-                              <span className="text-white truncate font-black flex-1 text-[11.5px] ml-1">
+                              <span className="text-white font-black flex-1 text-[10.5px] ml-0.5 break-words leading-snug">
                                 {appt.patient?.first_name} {appt.patient?.last_name || ''}
                               </span>
-                              <span className="text-slate-200 font-bold shrink-0 text-[9.5px] opacity-90 px-1 py-0.25 rounded bg-white/5 border border-white/5">
+                              <span className="text-slate-200 font-bold shrink-0 text-[8.5px] opacity-90 px-1 py-px rounded bg-white/5 border border-white/5 leading-none">
                                 {appt.doctor_name?.split(' ')?.[1] || 'Zubar'}
                               </span>
                             </div>
                             {appt.treatment_today && (
-                              <div className="text-[10.5px] text-white/95 font-semibold truncate w-full border-t border-white/5 pt-0.5 mt-0.5">
+                              <div className="text-[9.5px] text-white/80 font-medium w-full border-t border-white/5 pt-0.5 mt-0.5 break-words leading-tight">
                                 🦷 {appt.treatment_today}
                               </div>
                             )}
@@ -1198,7 +1198,7 @@ export default function TerminiClient({
 
         {/* VIEW 3: HRONOLOŠKA LISTA (List view) */}
         {viewMode === 'list' && (
-          <div className="max-w-2xl mx-auto py-4">
+          <div className="max-w-3xl mx-auto py-2">
             {listGroupedKeys.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <CalendarIcon size={44} className="text-slate-700 mb-4" />
@@ -1206,7 +1206,7 @@ export default function TerminiClient({
                 <p className="text-slate-600 text-sm mt-1">Nema predstojećih termina za izabranog lekara</p>
               </div>
             ) : (
-              <div className="space-y-8">
+              <div className="space-y-4">
                 {listGroupedKeys.map((dateKey) => {
                   const dayAppts = appointmentsByDate[dateKey] || []
                   const dt = new Date(dayAppts[0].appointment_datetime)
@@ -1214,8 +1214,8 @@ export default function TerminiClient({
 
                   return (
                     <div key={dateKey} className="group/day">
-                      {/* Day heading: Clean, no borders, text-only as requested */}
-                      <div className="flex items-center gap-3 mb-3">
+                      {/* Day heading */}
+                      <div className="flex items-center gap-3 mb-1.5">
                         <div className={`px-2.5 py-0.5 rounded-lg text-xs font-black ${
                           today
                             ? 'bg-sky-500/15 text-sky-400'
@@ -1227,8 +1227,8 @@ export default function TerminiClient({
                         <span className="text-slate-600 text-xs font-bold">{dayAppts.length} termin{dayAppts.length !== 1 ? 'a' : ''}</span>
                       </div>
 
-                      {/* Appointments List: Clean, borderless, text only, no backgrounds */}
-                      <div className="space-y-3.5">
+                      {/* Appointments List: Compact rows */}
+                      <div className="space-y-0.5">
                         {dayAppts.map((appt) => {
                           const docColor = getDoctorColor(appt.doctor_name)
                           const catInfo = CATEGORY_LABELS[appt.patient?.category ?? 'regular']
@@ -1237,78 +1237,72 @@ export default function TerminiClient({
                           return (
                             <div 
                               key={appt.id}
-                              className={`flex items-start gap-4 py-2 rounded-xl px-2 transition-all relative ${
-                                isHighlighted ? 'ring-2 ring-sky-400 bg-sky-500/10 shadow-[0_0_15px_rgba(56,189,248,0.55)]' : 'hover:bg-white/2'
+                              className={`flex items-center gap-3 py-1.5 rounded-xl px-2 transition-all relative ${
+                                isHighlighted ? 'ring-2 ring-sky-400 bg-sky-500/10 shadow-[0_0_15px_rgba(56,189,248,0.55)]' : 'hover:bg-white/[0.02]'
                               }`}
                             >
-                              {/* Time display */}
-                              <div className="shrink-0 w-16 text-center pt-0.5">
-                                <div className="text-lg font-black text-sky-400">
+                              {/* Time display — compact, inline */}
+                              <div className="shrink-0 w-12 text-center">
+                                <div className="text-sm font-black text-sky-400 leading-none">
                                   {formatTime(appt.appointment_datetime)}
                                 </div>
-                                <div className="text-slate-600 text-[10px] font-bold">Belgrade h</div>
                               </div>
 
                               {/* Divider */}
                               <div className="w-px self-stretch bg-white/5" />
 
-                              {/* Details: Borderless, clean */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-start justify-between gap-4">
-                                  <div>
-                                    <p className="text-white text-base font-extrabold leading-tight">
+                              {/* Details: Single row layout */}
+                              <div className="flex-1 min-w-0 flex items-center gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-white text-sm font-extrabold leading-tight truncate">
                                       {appt.patient?.first_name} {appt.patient?.last_name || ''}
                                     </p>
-                                    <p className="text-slate-500 text-xs mt-0.5 font-bold font-mono">
+                                    <span className="text-slate-600 text-[10px] font-bold font-mono shrink-0 hidden sm:inline">
                                       {appt.patient?.phone?.startsWith('/') ? '/' : appt.patient?.phone}
+                                    </span>
+                                  </div>
+                                  {appt.treatment_today && (
+                                    <p className="text-slate-500 text-[11px] font-medium truncate leading-tight mt-0.5">
+                                      🦷 {appt.treatment_today}
                                     </p>
-                                  </div>
-                                  
-                                  <div className="flex flex-col items-end gap-1.5 shrink-0 text-right">
-                                    {/* Patient Category and Doctor badges */}
-                                    <div className="flex items-center gap-1.5">
-                                      {catInfo && (
-                                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${catInfo.badge}`}>
-                                          {catInfo.label}
-                                        </span>
-                                      )}
-                                      {appt.doctor_name && (
-                                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${docColor.badge}`}>
-                                          {appt.doctor_name}
-                                        </span>
-                                      )}
-                                    </div>
-                                    
-                                    {appt.reminder_sent && (
-                                      <span className="text-[10px] text-emerald-400 font-extrabold">
-                                        ✓ SMS Poslat
-                                      </span>
-                                    )}
-                                  </div>
+                                  )}
                                 </div>
 
-                                {appt.treatment_today && (
-                                  <p className="text-slate-400 text-xs mt-1.5 font-medium flex items-center gap-1">
-                                    <Clock size={12} className="text-slate-600" />
-                                    {appt.treatment_today}
-                                  </p>
-                                )}
+                                {/* Badges */}
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {catInfo && catInfo.label !== 'Regularni' && (
+                                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full ${catInfo.badge} hidden sm:inline`}>
+                                      {catInfo.label}
+                                    </span>
+                                  )}
+                                  {appt.doctor_name && (
+                                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full ${docColor.badge}`}>
+                                      {appt.doctor_name?.split(' ')?.[1] || 'Zubar'}
+                                    </span>
+                                  )}
+                                  {appt.reminder_sent && (
+                                    <span className="text-[9px] text-emerald-400 font-extrabold hidden sm:inline">
+                                      ✓ SMS
+                                    </span>
+                                  )}
+                                </div>
 
                                 {/* Action Buttons */}
-                                <div className="flex gap-3 mt-2">
+                                <div className="flex gap-1.5 shrink-0">
                                   <button
                                     onClick={() => handleEditClick(appt)}
-                                    className="text-xs text-sky-400 hover:text-sky-300 font-bold transition-colors cursor-pointer flex items-center gap-1"
+                                    className="p-1.5 text-slate-500 hover:text-sky-400 rounded-lg hover:bg-sky-500/10 transition-colors cursor-pointer"
+                                    title="Izmeni"
                                   >
-                                    <Edit2 size={11} />
-                                    Izmeni
+                                    <Edit2 size={13} />
                                   </button>
                                   <button
                                     onClick={() => setDeleteConfirmId(appt.id)}
-                                    className="text-xs text-red-400 hover:text-red-300 font-bold transition-colors cursor-pointer flex items-center gap-1"
+                                    className="p-1.5 text-slate-500 hover:text-red-400 rounded-lg hover:bg-red-500/10 transition-colors cursor-pointer"
+                                    title="Obriši"
                                   >
-                                    <Trash2 size={11} />
-                                    Obriši
+                                    <Trash2 size={13} />
                                   </button>
                                 </div>
                               </div>
@@ -1521,7 +1515,7 @@ export default function TerminiClient({
                         >
                           {bookingTimeSlots.map((time) => (
                             <option key={time} value={time}>
-                              {time} h
+                              {time}
                             </option>
                           ))}
                         </select>
@@ -1648,7 +1642,7 @@ export default function TerminiClient({
                         >
                           {editTimeSlots.map((time) => (
                             <option key={time} value={time}>
-                              {time} h
+                              {time}
                             </option>
                           ))}
                         </select>
