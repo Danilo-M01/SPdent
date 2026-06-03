@@ -60,6 +60,14 @@ export default function AdminDashboardClient({
   const [localStats, setLocalStats] = useState(stats)
 
   useEffect(() => {
+    setPatients(initialPatients)
+  }, [initialPatients])
+
+  useEffect(() => {
+    setLocalStats(stats)
+  }, [stats])
+
+  useEffect(() => {
     const supabase = createClient()
 
     const checkStatus = async () => {

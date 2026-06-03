@@ -5,6 +5,7 @@ import { useDropzone } from 'react-dropzone'
 import * as XLSX from 'xlsx'
 import { motion } from 'framer-motion'
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { bulkImportPatients, type ImportPatient } from '@/app/admin/actions'
 
 interface ExcelImporterProps {
@@ -19,7 +20,108 @@ const headerMap: Record<string, string> = {
   parent_name: 'Ime roditelja',
   medical_alerts: 'Alergije/Upozorenja',
   notes: 'Napomene/Podaci',
-  category: 'Kategorija'
+  category: 'Kategorija',
+  appointment_date: 'Sledeći termin',
+  doctor_name: 'Lekar'
+}
+
+function parseImportedDate(val: unknown): string | null {
+  if (val === null || val === undefined || val === '') return null
+
+  // If SheetJS parsed it as a JS Date object
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return null
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Europe/Belgrade',
+        year: 'numeric', month: 'numeric', day: 'numeric',
+        hour: 'numeric', minute: 'numeric',
+        hour12: false
+      }).formatToParts(val)
+      const fp: Record<string, string> = {}
+      parts.forEach(p => { if (p.type !== 'literal') fp[p.type] = p.value })
+      const pad = (s: string) => s.padStart(2, '0')
+      return `${fp.year}-${pad(fp.month)}-${pad(fp.day)}T${pad(fp.hour)}:${pad(fp.minute)}`
+    } catch {
+      return val.toISOString().substring(0, 16)
+    }
+  }
+
+  // If it's a number (Excel date serial)
+  if (typeof val === 'number') {
+    if (val > 30000 && val < 60000) {
+      const date = new Date(Math.round((val - 25569) * 86400 * 1000))
+      return parseImportedDate(date)
+    }
+    return null
+  }
+
+  const str = String(val).trim()
+  if (!str) return null
+
+  // Serbian format: "15.06.2026. 10:00" or "15.06.2026. u 10:00" or "15.06.2026 10:00" or "15.6.2026. 10:00"
+  const serbianMatch = str.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\.?(?:\s+(?:u\s+)?(\d{1,2})[:.](\d{2}))?/i)
+  if (serbianMatch) {
+    const day = parseInt(serbianMatch[1], 10)
+    const month = parseInt(serbianMatch[2], 10)
+    const year = parseInt(serbianMatch[3], 10)
+    const hour = serbianMatch[4] ? parseInt(serbianMatch[4], 10) : 10
+    const minute = serbianMatch[5] ? parseInt(serbianMatch[5], 10) : 0
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${year}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute)}`
+  }
+
+  // Slash format: "15/06/2026 10:00" or "15/06/2026"
+  const slashMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2})[:.](\d{2}))?/)
+  if (slashMatch) {
+    const day = parseInt(slashMatch[1], 10)
+    const month = parseInt(slashMatch[2], 10)
+    const year = parseInt(slashMatch[3], 10)
+    const hour = slashMatch[4] ? parseInt(slashMatch[4], 10) : 10
+    const minute = slashMatch[5] ? parseInt(slashMatch[5], 10) : 0
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${year}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute)}`
+  }
+
+  // ISO format: "2026-06-15 10:00" or "2026-06-15T10:00" or "2026-06-15"
+  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})(?:T|\s+)(\d{2})[:.](\d{2})/)
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}T${isoMatch[4]}:${isoMatch[5]}`
+  }
+
+  const isoDateOnlyMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (isoDateOnlyMatch) {
+    return `${isoDateOnlyMatch[1]}-${isoDateOnlyMatch[2]}-${isoDateOnlyMatch[3]}T10:00`
+  }
+
+  const d = new Date(str)
+  if (!isNaN(d.getTime())) {
+    return parseImportedDate(d)
+  }
+
+  return null
+}
+
+function mapDoctorName(raw: unknown): string | null {
+  if (!raw) return null
+  const str = String(raw).toLowerCase().trim()
+  if (str.includes('slaviš') || str.includes('slavis') || str.includes('petković') || str.includes('petkovic')) {
+    return 'dr Slaviša Petković'
+  }
+  if (str.includes('nebojš') || str.includes('nebojs') || str.includes('kostić') || str.includes('kostic')) {
+    return 'dr Nebojša Kostić'
+  }
+  if (str.includes('đurđin') || str.includes('djurdjin') || str.includes('grujić') || str.includes('grujic')) {
+    return 'dr Đurđina Grujić'
+  }
+  if (str.length > 0) {
+    const orig = String(raw).trim()
+    if (!orig.toLowerCase().startsWith('dr')) {
+      return `dr ${orig}`
+    }
+    return orig
+  }
+  return null
 }
 
 function mapImportedRow(row: Record<string, unknown>): ImportPatient {
@@ -41,8 +143,9 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient {
     'napomena', 'notes', 'note', 'komentar',
     'datumrođenja', 'datumrodenja', 'datumrodjenja', 'rodjen', 'rođen', 'dob',
     'prethodneintervencije', 'intervencije',
-    'izabranidoktor', 'doktor',
-    'sledećipregled', 'sledecipregled', 'pregled',
+    'izabranidoktor', 'doktor', 'lekar', 'ordinirajućilekar', 'ordinirajucilekar',
+    'sledećipregled', 'sledecipregled', 'pregled', 'termin', 'vreme', 'datum', 'datumtermina',
+    'datumvreme', 'datumivreme', 'sledećitermin', 'sledecitermin', 'sledećidolazak', 'sledecidolazak',
     'ukupandug', 'dug', 'dugrsd', 'ukupandugrsd',
     'pacijentid', 'id'
   ])
@@ -83,7 +186,14 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient {
     category = 'proteza'
   }
 
-  // 7. Napomene / Ostala polja -> notes
+  // 7. Extract appointment date & doctor name
+  const rawDateVal = norm.termin || norm.datum || norm.sledećitermin || norm.sledecitermin || norm.sledećipregled || norm.sledecipregled || norm.pregled || norm.vreme || norm.datumvreme || norm.datumivreme || norm.sledećidolazak || norm.sledecidolazak || '';
+  const appointmentDate = parseImportedDate(rawDateVal);
+
+  const rawDoctorVal = norm.izabranidoktor || norm.doktor || norm.lekar || norm.ordinirajućilekar || norm.ordinirajucilekar || '';
+  const mappedDoctorName = mapDoctorName(rawDoctorVal);
+
+  // 8. Napomene / Ostala polja -> notes
   const notesParts: string[] = []
   
   const napomena = norm.napomena || norm.notes || norm.note || norm.komentar || '';
@@ -95,11 +205,8 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient {
   const prethodneIntervencije = norm.prethodneintervencije || norm.intervencije || '';
   if (prethodneIntervencije) notesParts.push(`Prethodne intervencije: ${prethodneIntervencije}`)
 
-  const izabraniDoktor = norm.izabranidoktor || norm.doktor || '';
-  if (izabraniDoktor) notesParts.push(`Izabrani doktor: ${izabraniDoktor}`)
-
-  const sledeciPregled = norm.sledećipregled || norm.sledecipregled || norm.pregled || '';
-  if (sledeciPregled) notesParts.push(`Sledeći pregled: ${sledeciPregled}`)
+  if (rawDoctorVal) notesParts.push(`Uvezen doktor: ${rawDoctorVal}`)
+  if (rawDateVal) notesParts.push(`Uvezen termin: ${rawDateVal}`)
 
   const ukupanDug = norm.ukupandug || norm.dug || norm.dugrsd || norm.ukupandugrsd || '';
   if (ukupanDug) notesParts.push(`Dug iz starog sistema: ${ukupanDug} RSD`)
@@ -107,7 +214,7 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient {
   const pacijentId = norm.pacijentid || norm.id || '';
   if (pacijentId) notesParts.push(`ID iz starog sistema: ${pacijentId}`)
 
-  // 8. DYNAMIC EXTRA COLUMNS: capture any unhandled keys from the excel row and append them to notes
+  // 9. DYNAMIC EXTRA COLUMNS: capture any unhandled keys from the excel row and append them to notes
   const extraFields: string[] = []
   for (const key in row) {
     const normKey = key.toLowerCase().trim().replace(/[\s\._-]/g, '')
@@ -133,10 +240,13 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient {
     medical_alerts: medicalAlerts ? String(medicalAlerts).trim() : null,
     notes: notes ? notes.trim() : null,
     category: category,
+    appointment_date: appointmentDate,
+    doctor_name: mappedDoctorName,
   }
 }
 
 export default function ExcelImporter({ onClose }: ExcelImporterProps) {
+  const router = useRouter()
   const [dataPreview, setDataPreview] = useState<Array<ImportPatient & { isInvalid?: boolean }>>([])
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -150,8 +260,8 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
     const reader = new FileReader()
     reader.onload = (e) => {
       try {
-        const data = e.target?.result
-        const workbook = XLSX.read(data, { type: 'binary' })
+        const data = new Uint8Array(e.target?.result as ArrayBuffer)
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true })
         const sheetName = workbook.SheetNames[0]
         const worksheet = workbook.Sheets[sheetName]
         const json = XLSX.utils.sheet_to_json(worksheet, { defval: '' }) as Array<Record<string, unknown>>
@@ -163,7 +273,7 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
             for (const key in row) {
               const val = row[key]
               if (val !== null && val !== undefined) {
-                const strVal = String(val).trim()
+                const strVal = val instanceof Date ? val : String(val).trim()
                 cleanRow[key] = strVal
                 if (strVal !== '') hasData = true
               }
@@ -189,7 +299,7 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
         setError('Greška pri čitanju fajla. Proverite da li je validan Excel ili CSV.')
       }
     }
-    reader.readAsBinaryString(file)
+    reader.readAsArrayBuffer(file)
   }, [])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -215,6 +325,7 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
 
     if (result.success) {
       setSuccess(true)
+      router.refresh()
       setTimeout(() => {
         onClose()
       }, 2000)
@@ -324,6 +435,19 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
                                 /
                               </td>
                             )
+                          }
+                          if (key === 'appointment_date' && val) {
+                            try {
+                              const [dPart, tPart] = String(val).split('T')
+                              if (dPart && tPart) {
+                                const [y, m, d] = dPart.split('-')
+                                return (
+                                  <td key={j} className="px-4 py-3 text-emerald-400 font-medium">
+                                    {`${d}.${m}.${y}. u ${tPart}`}
+                                  </td>
+                                )
+                              }
+                            } catch {}
                           }
                           return (
                             <td key={j} className="px-4 py-3 text-slate-300">

@@ -454,17 +454,21 @@ export interface ImportPatient {
   medical_alerts?: string | null
   notes?: string | null
   category?: string
+  appointment_date?: string | null
+  doctor_name?: string | null
 }
 
 /**
  * Bulk import patients from parsed Excel/CSV arrays.
  * Employs custom deduplication based on matching names for patients without phone numbers.
+ * Safely handles phone conflicts by offloading colliding numbers into notes and generating no-phone IDs.
+ * Also parses and inserts associated future appointments.
  */
 export async function bulkImportPatients(patients: ImportPatient[]): Promise<ActionResult> {
   try {
     const supabase = await createClient()
     
-    // 1. Fetch existing patients to match potential no-phone candidates
+    // 1. Fetch existing patients to match potential candidates and check phone availability
     const { data: existing, error: fetchErr } = await supabase
       .from('patients')
       .select('first_name, last_name, phone')
@@ -474,56 +478,166 @@ export async function bulkImportPatients(patients: ImportPatient[]): Promise<Act
       return { success: false, error: 'Greška pri učitavanju baze pacijenata.' }
     }
 
-    // Map existing no-phone patients by normalized name key
+    // Map existing no-phone patients by normalized name key -> generated phone number
     const existingNoPhoneMap = new Map<string, string>()
+    // Map existing regular patients by phone number -> name
+    const existingPhoneMap = new Map<string, { first_name: string; last_name: string | null }>()
+
     if (existing) {
       for (const p of existing) {
         if (p.phone.startsWith('/-no-phone-')) {
           const key = `${p.first_name.trim().toLowerCase()}_${(p.last_name || '').trim().toLowerCase()}`
           existingNoPhoneMap.set(key, p.phone)
+        } else if (!p.phone.startsWith('/')) {
+          existingPhoneMap.set(p.phone, { first_name: p.first_name, last_name: p.last_name })
         }
       }
     }
 
+    // Keep track of phone numbers assigned within this import batch to avoid collisions inside the same statement
+    const batchPhoneSet = new Set<string>()
+
     // Format patients to match schema
     const formattedPatients = patients.map(p => {
       let phoneVal = sanitizePhone(p.phone)
+      const fName = sanitizeText(p.first_name) || 'Nepoznato'
+      const lName = sanitizeText(p.last_name) || ''
+      const nameKey = `${fName.trim().toLowerCase()}_${lName.trim().toLowerCase()}`
       
-      if (!phoneVal || phoneVal === '/' || phoneVal.startsWith('/')) {
-        const fName = sanitizeText(p.first_name) || 'Nepoznato'
-        const lName = sanitizeText(p.last_name) || ''
-        const key = `${fName.trim().toLowerCase()}_${lName.trim().toLowerCase()}`
+      let noteExtra = ''
 
-        if (existingNoPhoneMap.has(key)) {
+      const isNoPhone = !phoneVal || phoneVal === '/' || phoneVal.startsWith('/')
+
+      if (isNoPhone) {
+        if (existingNoPhoneMap.has(nameKey)) {
           // Match existing no-phone record to prevent creating duplicates on re-import
-          phoneVal = existingNoPhoneMap.get(key)!
+          phoneVal = existingNoPhoneMap.get(nameKey)!
         } else {
           // Generate key and save to temp map to avoid dups within the same imported batch
           phoneVal = `/-no-phone-${Math.random().toString(36).substring(2, 10)}`
-          existingNoPhoneMap.set(key, phoneVal)
+          existingNoPhoneMap.set(nameKey, phoneVal)
+        }
+      } else {
+        // It has a phone number. Check if it collides with an existing patient of a different name,
+        // or if it collides with a patient already processed in this batch.
+        const existingOwner = existingPhoneMap.get(phoneVal)
+        const isDuplicateInBatch = batchPhoneSet.has(phoneVal)
+
+        if (
+          (existingOwner && 
+            (existingOwner.first_name.trim().toLowerCase() !== fName.trim().toLowerCase() || 
+             (existingOwner.last_name || '').trim().toLowerCase() !== lName.trim().toLowerCase())) || 
+          isDuplicateInBatch
+        ) {
+          // Collision: treat as no-phone, generate code, append original phone to notes
+          noteExtra = `Uvezen broj telefona: ${phoneVal}`
+          phoneVal = `/-no-phone-${Math.random().toString(36).substring(2, 10)}`
+        } else {
+          // Normal phone number: track to prevent duplicate updates in the same upsert
+          batchPhoneSet.add(phoneVal)
         }
       }
 
+      let notesVal = sanitizeText(p.notes) || null
+      if (noteExtra) {
+        notesVal = notesVal ? `${notesVal} | ${noteExtra}` : noteExtra
+      }
+
       return {
-        first_name: sanitizeText(p.first_name) || 'Nepoznato',
-        last_name: sanitizeText(p.last_name) || null,
+        first_name: fName,
+        last_name: lName || null,
         phone: phoneVal,
         email: sanitizeEmail(p.email) || null,
         parent_name: sanitizeText(p.parent_name) || null,
         medical_alerts: sanitizeText(p.medical_alerts) || null,
-        notes: sanitizeText(p.notes) || null,
+        notes: notesVal,
         category: p.category || 'regular',
       }
     })
 
-    const { error } = await supabase.from('patients').upsert(formattedPatients, {
-      onConflict: 'phone',
-      ignoreDuplicates: false,
+    // Remove duplicates from formattedPatients by phone key (PostgreSQL upsert can fail if duplicate phone keys exist in the same array)
+    const dedupedMap = new Map<string, typeof formattedPatients[0]>()
+    formattedPatients.forEach(p => {
+      dedupedMap.set(p.phone, p)
     })
+    const finalPatients = Array.from(dedupedMap.values())
+
+    // 2. Upsert patients and retrieve their DB ids
+    const { data: upsertedPatients, error } = await supabase
+      .from('patients')
+      .upsert(finalPatients, {
+        onConflict: 'phone',
+        ignoreDuplicates: false,
+      })
+      .select('id, phone')
 
     if (error) {
       console.error('[bulkImportPatients] DB Error:', error.message)
       return { success: false, error: 'Greška pri uvozu pacijenata. Proverite format.' }
+    }
+
+    // Map upserted patients phone -> ID
+    const phoneToIdMap = new Map<string, string>()
+    if (upsertedPatients) {
+      for (const p of upsertedPatients) {
+        phoneToIdMap.set(p.phone, p.id)
+      }
+    }
+
+    // 3. Process and bulk insert appointments if present
+    const appointmentsToInsert: any[] = []
+    
+    patients.forEach((p, idx) => {
+      if (p.appointment_date) {
+        const formattedPhone = formattedPatients[idx].phone
+        const patientId = phoneToIdMap.get(formattedPhone)
+        
+        if (patientId) {
+          const dt = parseBelgradeDateTime(p.appointment_date)
+          if (!isNaN(dt.getTime())) {
+            appointmentsToInsert.push({
+              patient_id: patientId,
+              appointment_datetime: dt.toISOString(),
+              doctor_name: p.doctor_name || null,
+              treatment_today: 'Uvezen termin',
+              treatment_history: [],
+              reminder_sent: false,
+            })
+          }
+        }
+      }
+    })
+
+    if (appointmentsToInsert.length > 0) {
+      // Fetch existing appointments for relevant patients to avoid duplicates
+      const patientIds = Array.from(new Set(appointmentsToInsert.map(a => a.patient_id)))
+      const { data: existingAppts } = await supabase
+        .from('appointments')
+        .select('patient_id, appointment_datetime')
+        .in('patient_id', patientIds)
+
+      const existingSet = new Set<string>()
+      if (existingAppts) {
+        for (const ea of existingAppts) {
+          existingSet.add(`${ea.patient_id}_${new Date(ea.appointment_datetime).toISOString()}`)
+        }
+      }
+
+      // Filter out duplicate appointments
+      const filteredAppts = appointmentsToInsert.filter(a => {
+        const key = `${a.patient_id}_${new Date(a.appointment_datetime).toISOString()}`
+        return !existingSet.has(key)
+      })
+
+      if (filteredAppts.length > 0) {
+        const { error: apptsErr } = await supabase
+          .from('appointments')
+          .insert(filteredAppts)
+        
+        if (apptsErr) {
+          console.error('[bulkImportPatients] Appointments Insertion Error:', apptsErr.message)
+        }
+      }
     }
 
     revalidatePath('/admin')
