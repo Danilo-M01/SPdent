@@ -101,45 +101,45 @@ function getTimeSlotsForDate(dateStr: string): string[] {
 // Map doctors to visual colors as requested
 export function getDoctorColor(doctorName: string | null | undefined) {
   if (!doctorName) return {
-    bg: 'bg-slate-900/40 hover:bg-slate-900/60',
-    border: 'border-white/5 hover:border-white/10',
-    text: 'text-slate-400',
-    badge: 'bg-slate-800 text-slate-400 border border-white/5',
+    bg: 'bg-slate-50 hover:bg-slate-100',
+    border: 'border-slate-200 hover:border-slate-300',
+    text: 'text-slate-600',
+    badge: 'bg-slate-105 text-slate-650 border border-slate-200',
     accent: 'slate'
   }
   const name = doctorName.toLowerCase()
   if (name.includes('slaviš') || name.includes('slavis')) {
     return {
-      bg: 'bg-emerald-500/5 hover:bg-emerald-500/10',
-      border: 'border-emerald-500/20 hover:border-emerald-500/40',
-      text: 'text-emerald-400',
-      badge: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/20',
+      bg: 'bg-emerald-50 hover:bg-emerald-100/70',
+      border: 'border-emerald-200 hover:border-emerald-300',
+      text: 'text-emerald-800 font-bold',
+      badge: 'bg-emerald-100 text-emerald-850 border border-emerald-250',
       accent: 'emerald'
     }
   }
   if (name.includes('nebojš') || name.includes('nebojs')) {
     return {
-      bg: 'bg-sky-500/5 hover:bg-sky-500/10',
-      border: 'border-sky-500/20 hover:border-sky-500/40',
-      text: 'text-sky-400',
-      badge: 'bg-sky-500/15 text-sky-300 border border-sky-500/20',
+      bg: 'bg-sky-50 hover:bg-sky-100/70',
+      border: 'border-sky-200 hover:border-sky-300',
+      text: 'text-sky-800 font-bold',
+      badge: 'bg-sky-100 text-sky-850 border border-sky-250',
       accent: 'sky'
     }
   }
   if (name.includes('elen') || name.includes('đurđ') || name.includes('djurdj')) {
     return {
-      bg: 'bg-rose-500/5 hover:bg-rose-500/10',
-      border: 'border-rose-500/20 hover:border-rose-500/40',
-      text: 'text-rose-400',
-      badge: 'bg-rose-500/15 text-rose-300 border border-rose-500/20',
+      bg: 'bg-rose-50 hover:bg-rose-100/70',
+      border: 'border-rose-200 hover:border-rose-300',
+      text: 'text-rose-800 font-bold',
+      badge: 'bg-rose-100 text-rose-850 border border-rose-255',
       accent: 'rose'
     }
   }
   return {
-    bg: 'bg-slate-900/40 hover:bg-slate-900/60',
-    border: 'border-white/5 hover:border-white/10',
-    text: 'text-slate-300',
-    badge: 'bg-slate-800 text-slate-300 border border-white/5',
+    bg: 'bg-slate-50 hover:bg-slate-100/70',
+    border: 'border-slate-200 hover:border-slate-300',
+    text: 'text-slate-700 font-semibold',
+    badge: 'bg-slate-100 text-slate-700 border border-slate-200',
     accent: 'slate'
   }
 }
@@ -727,39 +727,39 @@ export default function TerminiClient({
 
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-slate-950 p-4 pt-20 sm:p-6 lg:p-8 flex items-center justify-center">
-        <div className="text-slate-400 font-bold text-lg animate-pulse">Učitavanje planera...</div>
+      <div className="min-h-screen bg-slate-50 p-4 pt-20 sm:p-6 lg:p-8 flex items-center justify-center">
+        <div className="text-slate-500 font-bold text-lg animate-pulse">Učitavanje planera...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-4 pt-20 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-slate-50 p-4 pt-20 sm:p-6 lg:p-8">
       {/* Header Panel */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('toggle-admin-sidebar'))}
-            className="group flex items-center gap-3 bg-slate-900 hover:bg-slate-800 border border-white/5 hover:border-white/10 rounded-2xl px-4 py-2 transition-all cursor-pointer shadow-md"
+            className="group flex items-center gap-3 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-2xl px-4 py-2 transition-all cursor-pointer shadow-sm"
             title="Otvori meni"
           >
             <div className="relative w-8 h-8 flex items-center justify-center">
               <img
                 src="/logo-spdent.png"
                 alt="SP DENT Logo"
-                className="w-full h-full object-contain brightness-0 invert group-hover:scale-105 transition-transform"
+                className="w-full h-full object-contain brightness-0 group-hover:scale-105 transition-transform"
               />
             </div>
-            <span className="text-white font-black text-lg tracking-wide hidden sm:inline-block">SP DENT</span>
+            <span className="text-slate-900 font-black text-lg tracking-wide hidden sm:inline-block">SP DENT</span>
           </button>
           
-          <div className="h-6 w-px bg-white/15 mx-1" />
+          <div className="h-6 w-px bg-slate-200 mx-1" />
           
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center">
-              <CalendarDays className="text-sky-400" size={16} />
+            <div className="w-8 h-8 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-center">
+              <CalendarDays className="text-[#0284C7]" size={16} />
             </div>
-            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Planer</h1>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Planer</h1>
           </div>
         </div>
       </div>
@@ -771,7 +771,7 @@ export default function TerminiClient({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl text-sm font-bold flex items-center justify-between gap-3 shadow-lg"
+            className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-sm font-bold flex items-center justify-between gap-3 shadow-sm"
           >
             <div className="flex items-center gap-2">
               <span>✅</span>
@@ -779,7 +779,7 @@ export default function TerminiClient({
             </div>
             <button 
               onClick={() => setSuccessMsg(null)}
-              className="text-emerald-400 hover:text-emerald-300 font-bold text-xs cursor-pointer"
+              className="text-emerald-700 hover:text-emerald-900 font-bold text-xs cursor-pointer"
             >
               U redu
             </button>
@@ -790,7 +790,7 @@ export default function TerminiClient({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="mb-6 p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-sm font-bold flex items-center justify-between gap-3 shadow-lg"
+            className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-sm font-bold flex items-center justify-between gap-3 shadow-sm"
           >
             <div className="flex items-center gap-2">
               <span>⚠️</span>
@@ -798,7 +798,7 @@ export default function TerminiClient({
             </div>
             <button 
               onClick={() => setErrorMsg(null)}
-              className="text-rose-400 hover:text-rose-300 font-bold text-xs cursor-pointer"
+              className="text-rose-700 hover:text-rose-900 font-bold text-xs cursor-pointer"
             >
               U redu
             </button>
@@ -807,35 +807,35 @@ export default function TerminiClient({
       </AnimatePresence>
 
       {/* Control Toolbar */}
-      <div className="bg-slate-900/60 border border-white/5 rounded-2xl p-4 mb-6 flex flex-col gap-5">
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-6 flex flex-col gap-5 shadow-sm">
         {/* Row 1: Navigation & View Mode Buttons */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-white/5 pb-4">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 border-b border-slate-100 pb-4">
           {/* Navigation & Date Label */}
           <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
-            <div className="flex items-center gap-1.5 bg-slate-950 border border-white/10 rounded-xl p-1">
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl p-1">
               <button
                 onClick={handlePrev}
-                className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-900 transition-colors cursor-pointer"
+                className="p-2 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-white transition-colors cursor-pointer"
                 title="Prethodno"
               >
                 <ChevronLeft size={20} />
               </button>
               <button
                 onClick={handleToday}
-                className="px-3.5 py-1.5 text-xs text-white font-bold bg-slate-900 border border-white/5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                className="px-3.5 py-1.5 text-xs text-slate-700 font-bold bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
               >
                 Danas
               </button>
               <button
                 onClick={handleNext}
-                className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-900 transition-colors cursor-pointer"
+                className="p-2 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-white transition-colors cursor-pointer"
                 title="Sledeće"
               >
                 <ChevronRight size={20} />
               </button>
             </div>
 
-            <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
               {viewMode === 'weekly' ? (
                 `Nedelja: ${weekDays[0].getDate()}. ${new Intl.DateTimeFormat('sr-RS', { month: 'short' }).format(weekDays[0])} - ${weekDays[6].getDate()}. ${new Intl.DateTimeFormat('sr-RS', { month: 'short', year: 'numeric' }).format(weekDays[6])}`
               ) : (
@@ -845,11 +845,11 @@ export default function TerminiClient({
           </div>
 
           {/* View Mode Buttons */}
-          <div className="flex items-center bg-slate-950 border border-white/10 rounded-xl p-1 self-end md:self-auto">
+          <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl p-1 self-end md:self-auto">
             <button
               onClick={() => setViewMode('weekly')}
               className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                viewMode === 'weekly' ? 'bg-sky-500 text-slate-950 font-black' : 'text-slate-400 hover:text-white'
+                viewMode === 'weekly' ? 'bg-white text-slate-900 font-black shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               Nedeljni
@@ -857,7 +857,7 @@ export default function TerminiClient({
             <button
               onClick={() => setViewMode('monthly')}
               className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                viewMode === 'monthly' ? 'bg-sky-500 text-slate-950 font-black' : 'text-slate-400 hover:text-white'
+                viewMode === 'monthly' ? 'bg-white text-slate-900 font-black shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               Mesečni
@@ -865,7 +865,7 @@ export default function TerminiClient({
             <button
               onClick={() => setViewMode('list')}
               className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                viewMode === 'list' ? 'bg-sky-500 text-slate-950 font-black' : 'text-slate-400 hover:text-white'
+                viewMode === 'list' ? 'bg-white text-slate-900 font-black shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               Lista
@@ -877,23 +877,23 @@ export default function TerminiClient({
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
           {/* Patient Search Input */}
           <div className="md:col-span-5 flex flex-col gap-1.5">
-            <label htmlFor="appt-patient-filter-input" className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">
+            <label htmlFor="appt-patient-filter-input" className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">
               Pretraži pacijenta
             </label>
             <div className="relative">
-              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input
                 id="appt-patient-filter-input"
                 type="text"
                 value={patientFilterQuery}
                 onChange={(e) => setPatientFilterQuery(e.target.value)}
                 placeholder="Unesite ime i prezime pacijenta..."
-                className="w-full bg-slate-950 border border-white/10 hover:border-white/20 focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/20 rounded-xl pl-10 pr-28 py-2.5 text-sm text-white placeholder-slate-500 outline-none transition-all duration-200"
+                className="w-full bg-slate-50 border border-slate-200 hover:border-slate-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl pl-10 pr-28 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition-all duration-200"
               />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 bg-slate-950 pr-1 pl-1.5 py-1 rounded-lg border border-white/5 shadow-inner">
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 bg-white pr-1 pl-1.5 py-1 rounded-lg border border-slate-200 shadow-inner">
                 {patientFilterQuery && (
                   <>
-                    <span className="text-[10px] font-black text-slate-400 bg-slate-900 px-1 py-0.5 rounded select-none min-w-[32px] text-center border border-white/5">
+                    <span className="text-[10px] font-black text-slate-500 bg-slate-100 px-1 py-0.5 rounded select-none min-w-[32px] text-center border border-slate-200">
                       {matchingAppointments.length > 0 
                         ? `${currentMatchIndex !== -1 ? currentMatchIndex + 1 : 0}/${matchingAppointments.length}`
                         : '0/0'}
@@ -901,7 +901,7 @@ export default function TerminiClient({
                     <button
                       onClick={handlePrevMatch}
                       disabled={matchingAppointments.length === 0}
-                      className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed"
+                      className="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed"
                       title="Prethodni termin"
                     >
                       <ChevronUp size={14} />
@@ -909,18 +909,18 @@ export default function TerminiClient({
                     <button
                       onClick={handleNextMatch}
                       disabled={matchingAppointments.length === 0}
-                      className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed"
+                      className="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed"
                       title="Sledeći termin"
                     >
                       <ChevronDown size={14} />
                     </button>
-                    <span className="w-px h-3 bg-white/10 mx-0.5" />
+                    <span className="w-px h-3 bg-slate-200 mx-0.5" />
                   </>
                 )}
                 {patientFilterQuery && (
                   <button
                     onClick={() => setPatientFilterQuery('')}
-                    className="p-1 rounded hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    className="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
                     title="Očisti pretragu"
                   >
                     <X size={14} />
@@ -932,16 +932,16 @@ export default function TerminiClient({
 
           {/* Doctor Selection Pills */}
           <div className="md:col-span-7 flex flex-col gap-1.5">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider pl-1">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">
               Filtriraj po lekaru
             </label>
-            <div className="flex items-center gap-2 bg-slate-950 border border-white/10 rounded-xl p-1 overflow-x-auto max-w-full">
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl p-1 overflow-x-auto max-w-full">
               <button
                 onClick={() => setDoctorFilter('all')}
                 className={`px-3.5 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                   doctorFilter === 'all'
-                    ? 'bg-slate-800 text-white shadow-md'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
                 Svi lekari
@@ -955,14 +955,14 @@ export default function TerminiClient({
                     onClick={() => setDoctorFilter(doc)}
                     className={`px-3.5 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                       active
-                        ? `${info.badge} shadow-md`
-                        : 'text-slate-400 hover:text-slate-200'
+                        ? `${info.badge} shadow-sm border`
+                        : 'text-slate-500 hover:text-slate-700'
                     }`}
                   >
                     <span className={`w-2 h-2 rounded-full ${
-                      info.accent === 'emerald' ? 'bg-emerald-400' :
-                      info.accent === 'sky' ? 'bg-sky-400' :
-                      info.accent === 'rose' ? 'bg-rose-400' : 'bg-slate-400'
+                      info.accent === 'emerald' ? 'bg-emerald-500' :
+                      info.accent === 'sky' ? 'bg-sky-500' :
+                      info.accent === 'rose' ? 'bg-rose-500' : 'bg-slate-400'
                     }`} />
                     {doc?.split(' ')?.[1] || doc}
                   </button>
@@ -974,13 +974,13 @@ export default function TerminiClient({
       </div>
 
       {/* Main Views Container */}
-      <div className="bg-slate-900/30 border border-white/5 rounded-3xl p-2 sm:p-4 min-h-[500px]">
+      <div className="bg-white border border-slate-200 rounded-3xl p-2 sm:p-4 min-h-[500px] shadow-sm">
         {/* VIEW 1: WEEKLY HOURLY PLANNER */}
         {viewMode === 'weekly' && (
           <div className="overflow-x-auto premium-scrollbar">
-            <div className="min-w-[900px] grid grid-cols-8 border-b border-white/5 pb-2">
+            <div className="min-w-[900px] grid grid-cols-8 border-b border-slate-200 pb-2">
               {/* Corner */}
-              <div className="p-3 text-slate-500 text-xs font-semibold text-center border-r border-white/5">
+              <div className="p-3 text-slate-500 text-xs font-semibold text-center border-r border-slate-200">
                 Vreme
               </div>
               {/* Days Header */}
@@ -989,14 +989,14 @@ export default function TerminiClient({
                 return (
                   <div 
                     key={day.toISOString()} 
-                    className={`p-3 text-center border-r border-white/5 last:border-0 ${
-                      today ? 'bg-sky-500/10 rounded-2xl border border-sky-500/20 shadow-lg shadow-sky-500/5' : ''
+                    className={`p-3 text-center border-r border-slate-200 last:border-0 ${
+                      today ? 'bg-sky-50 rounded-2xl border border-sky-200 shadow-sm' : ''
                     }`}
                   >
-                    <p className={`text-xs font-black uppercase tracking-wider ${today ? 'text-sky-400' : 'text-slate-300'}`}>
+                    <p className={`text-xs font-black uppercase tracking-wider ${today ? 'text-sky-700' : 'text-slate-500'}`}>
                       {new Intl.DateTimeFormat('sr-RS', { weekday: 'short' }).format(day)}
                     </p>
-                    <p className={`text-xl font-black mt-0.5 ${today ? 'text-sky-400' : 'text-white'}`}>
+                    <p className={`text-xl font-black mt-0.5 ${today ? 'text-sky-700' : 'text-slate-900'}`}>
                       {day.getDate()}. {new Intl.DateTimeFormat('sr-RS', { month: 'short' }).format(day)}
                     </p>
                   </div>
@@ -1007,9 +1007,9 @@ export default function TerminiClient({
             {/* Hours Grid */}
             <div className="min-w-[900px]">
               {hourSlots.map((hour) => (
-                <div key={hour} className="grid grid-cols-8 border-b border-white/5 last:border-0 min-h-[60px] items-stretch">
+                <div key={hour} className="grid grid-cols-8 border-b border-slate-200 last:border-0 min-h-[60px] items-stretch">
                   {/* Hour display */}
-                  <div className="flex items-center justify-center p-3 text-sm font-black text-slate-400 bg-slate-950/20 border-r border-white/5">
+                  <div className="flex items-center justify-center p-3 text-sm font-black text-slate-500 bg-slate-50 border-r border-slate-200">
                     {hour}
                   </div>
 
@@ -1034,10 +1034,10 @@ export default function TerminiClient({
                       <div 
                         key={day.toISOString() + '-' + hour} 
                         onClick={() => !isOutsideHours && openBooking(day, hour)}
-                        className={`p-1 border-r border-white/5 last:border-0 min-h-[60px] transition-colors relative flex flex-col gap-0.5 justify-start pt-1.5 ${
+                        className={`p-1 border-r border-slate-200 last:border-0 min-h-[60px] transition-colors relative flex flex-col gap-0.5 justify-start pt-1.5 ${
                           isOutsideHours 
-                            ? 'bg-slate-950/60 opacity-30 cursor-default' 
-                            : 'hover:bg-slate-900/40 cursor-pointer group'
+                            ? 'bg-slate-50/50 opacity-40 cursor-default' 
+                            : 'hover:bg-slate-50 cursor-pointer group'
                         }`}
                       >
                         {cellAppts.map((appt) => {
@@ -1051,7 +1051,7 @@ export default function TerminiClient({
                                 handleEditClick(appt)
                               }}
                               className={`px-1.5 py-1 rounded-lg border text-left cursor-pointer transition-all w-full ${docColor.bg} ${docColor.border} ${
-                                isHighlighted ? 'ring-2 ring-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.5)] scale-[1.02]' : ''
+                                isHighlighted ? 'ring-2 ring-sky-400 scale-[1.02] shadow-sm' : ''
                               }`}
                             >
                               <div className="flex items-center justify-between gap-0.5 w-full">
@@ -1062,11 +1062,11 @@ export default function TerminiClient({
                                   {appt.doctor_name?.split(' ')?.[1] || 'Zubar'}
                                 </span>
                               </div>
-                              <p className="text-white text-[11px] font-black leading-snug break-words">
+                              <p className="text-slate-800 text-[11px] font-black leading-snug break-words">
                                 {appt.patient?.first_name} {appt.patient?.last_name || ''}
                               </p>
                               {appt.treatment_today && (
-                                <p className="text-white/80 text-[9.5px] leading-tight font-medium border-t border-white/5 pt-0.5 mt-0.5 break-words">
+                                <p className="text-slate-600 text-[9.5px] leading-tight font-medium border-t border-slate-200 pt-0.5 mt-0.5 break-words">
                                   🦷 {appt.treatment_today}
                                 </p>
                               )}
@@ -1077,8 +1077,8 @@ export default function TerminiClient({
                         {/* Plus hover sign */}
                         {cellAppts.length === 0 && !isOutsideHours && (
                           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <div className="w-6 h-6 rounded-full bg-sky-500/10 border border-sky-500/30 flex items-center justify-center">
-                              <Plus className="text-sky-400" size={12} />
+                            <div className="w-6 h-6 rounded-full bg-sky-50 border border-sky-200 flex items-center justify-center">
+                              <Plus className="text-sky-600" size={12} />
                             </div>
                           </div>
                         )}
@@ -1095,7 +1095,7 @@ export default function TerminiClient({
         {viewMode === 'monthly' && (
           <div>
             {/* Days of Week Header */}
-            <div className="grid grid-cols-7 border-b border-white/5 pb-2 text-center">
+            <div className="grid grid-cols-7 border-b border-slate-200 pb-2 text-center">
               {['Pon', 'Uto', 'Sre', 'Čet', 'Pet', 'Sub', 'Ned'].map((day) => (
                 <div key={day} className="p-2 text-slate-500 text-xs font-bold uppercase tracking-wider">
                   {day}
@@ -1115,20 +1115,20 @@ export default function TerminiClient({
                   <div
                     key={day.toISOString()}
                     onClick={() => openBooking(day)}
-                    className={`min-h-[120px] h-auto p-2 border border-white/5 rounded-2xl flex flex-col gap-1.5 hover:bg-slate-900/40 transition-colors cursor-pointer relative group ${
-                      isCurrentMonth ? 'bg-slate-900/10' : 'bg-slate-950/40 opacity-40'
-                    } ${today ? 'bg-sky-500/10 border border-sky-500/20 shadow-lg shadow-sky-500/5' : ''}`}
+                    className={`min-h-[120px] h-auto p-2 border border-slate-200 rounded-2xl flex flex-col gap-1.5 hover:bg-slate-50/80 transition-colors cursor-pointer relative group ${
+                      isCurrentMonth ? 'bg-white' : 'bg-slate-50/50 opacity-60'
+                    } ${today ? 'bg-sky-50/50 border border-sky-200 shadow-sm' : ''}`}
                   >
                     {/* Day number */}
-                    <div className="flex items-center justify-between border-b border-white/5 pb-1">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-1">
                       <span className={`text-base font-black ${
-                        today ? 'text-sky-400 font-extrabold' : 
-                        isCurrentMonth ? 'text-white' : 'text-slate-500'
+                        today ? 'text-sky-700 font-extrabold' : 
+                        isCurrentMonth ? 'text-slate-800' : 'text-slate-400'
                       }`}>
                         {day.getDate()}
                       </span>
                       {dayAppts.length > 0 && (
-                        <span className="text-[10px] text-slate-400 font-bold bg-slate-950 px-1.5 py-0.5 rounded-md">
+                        <span className="text-[10px] text-slate-600 font-bold bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md">
                           {dayAppts.length}
                         </span>
                       )}
@@ -1141,13 +1141,13 @@ export default function TerminiClient({
                         const isNebojsa = appt.doctor_name?.toLowerCase().includes('nebojš') || appt.doctor_name?.toLowerCase().includes('nebojs')
                         const isDjurdjina = appt.doctor_name?.toLowerCase().includes('đurđ') || appt.doctor_name?.toLowerCase().includes('djurdj')
 
-                        let customCardClasses = 'bg-slate-800/40 border-white/10 text-slate-300'
+                        let customCardClasses = 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
                         if (isSlavisa) {
-                          customCardClasses = 'bg-emerald-500/25 border-emerald-500/60 text-emerald-200 hover:bg-emerald-500/35 hover:border-emerald-500/80'
+                          customCardClasses = 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100 hover:border-emerald-300'
                         } else if (isNebojsa) {
-                          customCardClasses = 'bg-sky-500/25 border-sky-500/60 text-sky-200 hover:bg-sky-500/35 hover:border-sky-500/80'
+                          customCardClasses = 'bg-sky-50 border-sky-200 text-sky-800 hover:bg-sky-100 hover:border-sky-300'
                         } else if (isDjurdjina) {
-                          customCardClasses = 'bg-rose-500/25 border-rose-500/60 text-rose-200 hover:bg-rose-500/35 hover:border-rose-500/80'
+                          customCardClasses = 'bg-rose-50 border-rose-200 text-rose-800 hover:bg-rose-100 hover:border-rose-300'
                         }
 
                         const isHighlighted = matchingAppointments.length > 0 && currentMatchIndex !== -1 && appt.id === matchingAppointments[currentMatchIndex].id
@@ -1159,22 +1159,22 @@ export default function TerminiClient({
                                 handleEditClick(appt)
                               }}
                               className={`px-1.5 py-1 rounded-lg border text-[11px] font-black leading-snug flex flex-col gap-0 hover:scale-[1.01] transition-all cursor-pointer ${customCardClasses} ${
-                                isHighlighted ? 'ring-2 ring-sky-400 shadow-[0_0_15px_rgba(56,189,248,0.5)] scale-[1.02]' : ''
+                                isHighlighted ? 'ring-2 ring-sky-400 scale-[1.02] shadow-sm' : ''
                               }`}
                             >
                             <div className="flex items-center gap-1 w-full">
-                              <span className="shrink-0 font-bold px-1 py-px bg-slate-950/60 rounded text-[9px] text-white leading-none">
+                              <span className="shrink-0 font-bold px-1 py-px bg-black/5 rounded text-[9px] text-slate-700 leading-none">
                                 {formatTime(appt.appointment_datetime)}
                               </span>
-                              <span className="text-white font-black flex-1 text-[10.5px] ml-0.5 break-words leading-snug">
+                              <span className="text-slate-800 font-black flex-1 text-[10.5px] ml-0.5 break-words leading-snug">
                                 {appt.patient?.first_name} {appt.patient?.last_name || ''}
                               </span>
-                              <span className="text-slate-200 font-bold shrink-0 text-[8.5px] opacity-90 px-1 py-px rounded bg-white/5 border border-white/5 leading-none">
+                              <span className="text-slate-600 font-bold shrink-0 text-[8.5px] opacity-90 px-1 py-px rounded bg-black/5 border border-black/5 leading-none">
                                 {appt.doctor_name?.split(' ')?.[1] || 'Zubar'}
                               </span>
                             </div>
                             {appt.treatment_today && (
-                              <div className="text-[9.5px] text-white/80 font-medium w-full border-t border-white/5 pt-0.5 mt-0.5 break-words leading-tight">
+                              <div className="text-[9.5px] text-slate-500 font-medium w-full border-t border-slate-200 pt-0.5 mt-0.5 break-words leading-tight">
                                 🦷 {appt.treatment_today}
                               </div>
                             )}
@@ -1185,8 +1185,8 @@ export default function TerminiClient({
 
                     {/* Plus hover sign */}
                     <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="w-5 h-5 rounded-full bg-sky-500/10 border border-sky-500/30 flex items-center justify-center">
-                        <Plus className="text-sky-400" size={10} />
+                      <div className="w-5 h-5 rounded-full bg-sky-50 border border-sky-200 flex items-center justify-center">
+                        <Plus className="text-sky-600" size={10} />
                       </div>
                     </div>
                   </div>

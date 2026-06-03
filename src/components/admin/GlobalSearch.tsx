@@ -14,7 +14,7 @@ export default function GlobalSearch({ query, onQueryChange, totalCount }: Globa
       <div className="relative flex-1 max-w-lg">
         <Search
           size={16}
-          className="absolute left-4 top-1/2 -translate-y-1/2 text-white pointer-events-none"
+          className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
         />
         <input
           id="patient-search-input"
@@ -22,12 +22,12 @@ export default function GlobalSearch({ query, onQueryChange, totalCount }: Globa
           value={query}
           onChange={e => onQueryChange(e.target.value)}
           placeholder="Pretraži po imenu ili broju telefona..."
-          className="w-full bg-slate-900/60 backdrop-blur-sm border border-white/5 hover:border-white/10 focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/20 rounded-xl pl-10 pr-10 py-3 text-sm text-white placeholder-slate-500 outline-none transition-all duration-200"
+          className="w-full bg-white border border-[#E2E8F0] hover:border-slate-300 focus:border-[#0284C7] focus:ring-2 focus:ring-sky-500/10 rounded-xl pl-10 pr-10 py-3 text-sm text-[#0F172A] placeholder-slate-400 outline-none transition-all duration-200"
         />
         {query && (
           <button
             onClick={() => onQueryChange('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:bg-white/10 text-slate-500 hover:text-white transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
             aria-label="Obriši pretragu"
           >
             <X size={14} />

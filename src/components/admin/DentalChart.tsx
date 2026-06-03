@@ -27,12 +27,12 @@ interface DentalChartProps {
 }
 
 const STATUS_CONFIG: Record<ToothStatus, { label: string; color: string; bg: string; border: string }> = {
-  healthy:  { label: 'Zdrav',    color: 'text-slate-300', bg: 'fill-slate-700',   border: 'stroke-slate-500' },
-  caries:   { label: 'Karijes',  color: 'text-red-400',   bg: 'fill-red-900',     border: 'stroke-red-500' },
-  filled:   { label: 'Plomba',   color: 'text-sky-400',   bg: 'fill-sky-900',     border: 'stroke-sky-500' },
-  crown:    { label: 'Krunica',  color: 'text-violet-400', bg: 'fill-violet-900', border: 'stroke-violet-500' },
-  missing:  { label: 'Nedostaje',color: 'text-slate-500', bg: 'fill-slate-900',   border: 'stroke-slate-700' },
-  implant:  { label: 'Implant',  color: 'text-emerald-400',bg: 'fill-emerald-900',border: 'stroke-emerald-500' },
+  healthy:  { label: 'Zdrav',    color: 'text-slate-600 font-semibold', bg: 'fill-slate-50',   border: 'stroke-slate-300' },
+  caries:   { label: 'Karijes',  color: 'text-red-700 font-semibold',   bg: 'fill-red-50',     border: 'stroke-red-400' },
+  filled:   { label: 'Plomba',   color: 'text-sky-700 font-semibold',   bg: 'fill-sky-50',     border: 'stroke-sky-400' },
+  crown:    { label: 'Krunica',  color: 'text-violet-700 font-semibold', bg: 'fill-violet-50',  border: 'stroke-violet-400' },
+  missing:  { label: 'Nedostaje',color: 'text-slate-500 font-semibold', bg: 'fill-slate-100',   border: 'stroke-slate-200' },
+  implant:  { label: 'Implant',  color: 'text-emerald-700 font-semibold',bg: 'fill-emerald-50',border: 'stroke-emerald-400' },
 }
 
 const STATUS_ORDER: ToothStatus[] = ['healthy', 'caries', 'filled', 'crown', 'missing', 'implant']
@@ -176,10 +176,10 @@ export default function DentalChart({ patientId, initialToothData }: DentalChart
   const LOWER_Y = 110
 
   return (
-    <div className="bg-slate-950/80 border border-white/10 rounded-2xl p-5">
+    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-bold text-white">Dentalni Karton (FDI Notacija)</h4>
-        {saving && <span className="text-xs text-slate-500 animate-pulse">Čuvanje...</span>}
+        <h4 className="text-sm font-bold text-slate-900">Dentalni Karton (FDI Notacija)</h4>
+        {saving && <span className="text-xs text-slate-400 animate-pulse">Čuvanje...</span>}
       </div>
 
       {/* Legend */}
@@ -189,12 +189,12 @@ export default function DentalChart({ patientId, initialToothData }: DentalChart
           return (
             <div key={s} className={`flex items-center gap-1.5 text-xs ${cfg.color}`}>
               <div className={`w-3 h-3 rounded-sm ${
-                s === 'healthy' ? 'bg-slate-700' :
-                s === 'caries' ? 'bg-red-900 border border-red-500' :
-                s === 'filled' ? 'bg-sky-900 border border-sky-500' :
-                s === 'crown' ? 'bg-violet-900 border border-violet-500' :
-                s === 'missing' ? 'bg-slate-900 border border-slate-700' :
-                'bg-emerald-900 border border-emerald-500'
+                s === 'healthy' ? 'bg-slate-50 border border-slate-350' :
+                s === 'caries' ? 'bg-red-50 border border-red-400' :
+                s === 'filled' ? 'bg-sky-50 border border-sky-400' :
+                s === 'crown' ? 'bg-violet-50 border border-violet-400' :
+                s === 'missing' ? 'bg-slate-100 border border-slate-200' :
+                'bg-emerald-50 border border-emerald-400'
               }`} />
               {cfg.label}
             </div>
@@ -212,14 +212,14 @@ export default function DentalChart({ patientId, initialToothData }: DentalChart
           style={{ fontFamily: 'monospace' }}
         >
           {/* Upper jaw label */}
-          <text x={SVG_WIDTH / 2} y={14} textAnchor="middle" fontSize={9} className="fill-slate-600">GORNJA VILICA</text>
+          <text x={SVG_WIDTH / 2} y={14} textAnchor="middle" fontSize={9} className="fill-slate-400 font-bold select-none">GORNJA VILICA</text>
 
           {/* Center divider (solid lines, perfectly centered) */}
-          <line x1={SVG_WIDTH / 2} y1={20} x2={SVG_WIDTH / 2} y2={175} stroke="#334155" strokeWidth={1.5} />
-          <line x1={20} y1={87} x2={SVG_WIDTH - 20} y2={87} stroke="#334155" strokeWidth={1.5} />
+          <line x1={SVG_WIDTH / 2} y1={20} x2={SVG_WIDTH / 2} y2={175} stroke="#E2E8F0" strokeWidth={1.5} />
+          <line x1={20} y1={87} x2={SVG_WIDTH - 20} y2={87} stroke="#E2E8F0" strokeWidth={1.5} />
 
           {/* Lower jaw label */}
-          <text x={SVG_WIDTH / 2} y={192} textAnchor="middle" fontSize={9} className="fill-slate-600">DONJA VILICA</text>
+          <text x={SVG_WIDTH / 2} y={192} textAnchor="middle" fontSize={9} className="fill-slate-400 font-bold select-none">DONJA VILICA</text>
 
           {/* Upper right (18..11) */}
           {UPPER_RIGHT.map((num, i) => (
@@ -284,15 +284,15 @@ export default function DentalChart({ patientId, initialToothData }: DentalChart
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
-            className="mt-4 bg-slate-800 border border-white/10 rounded-2xl p-4"
+            className="mt-4 bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-sm"
           >
             <div className="flex items-center justify-between mb-3">
-              <p className="text-white font-semibold text-sm">
+              <p className="text-slate-900 font-bold text-sm">
                 Zub #{selectedTooth} — {STATUS_CONFIG[getStatus(selectedTooth)].label}
               </p>
               <button
                 onClick={() => setSelectedTooth(null)}
-                className="p-1 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white"
+                className="p-1 rounded-lg hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors"
               >
                 <X size={14} />
               </button>
@@ -306,10 +306,10 @@ export default function DentalChart({ patientId, initialToothData }: DentalChart
                     key={s}
                     onClick={() => handleSetStatus(selectedTooth, s)}
                     disabled={saving}
-                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-medium transition-all cursor-pointer disabled:opacity-50 ${
+                    className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer disabled:opacity-50 ${
                       isActive
                         ? `${cfg.bg.replace('fill-', 'bg-')} ${cfg.border.replace('stroke-', 'border-')} ${cfg.color}`
-                        : 'bg-slate-900 border-white/5 text-slate-400 hover:border-white/20'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100 hover:border-slate-350 hover:text-slate-850'
                     }`}
                   >
                     {isActive && <CheckCircle2 size={11} />}

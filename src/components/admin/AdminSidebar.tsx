@@ -52,15 +52,15 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
   const navLinkClass = (active: boolean) =>
     `group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
       active
-        ? 'bg-sky-500/15 text-sky-300 border border-sky-500/20'
-        : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+        ? 'bg-[#E0F2FE] text-[#0284C7] border border-[#BFDBFE]'
+        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
     }`
 
   const categoryNavLinkClass = (active: boolean) =>
     `group flex items-center gap-3 px-3 py-2.5 transition-all duration-200 ${
       active
-        ? 'text-sky-400 font-bold text-base bg-transparent border-none'
-        : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 text-sm font-medium'
+        ? 'text-[#0284C7] font-bold text-base bg-transparent border-none'
+        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 text-sm font-medium'
     }`
 
   const handleLinkClick = () => {
@@ -70,22 +70,22 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
   return (
     <>
       {/* Mobile Header zaglavlje (prikazuje se samo na ekranima manjim od lg) */}
-      <div className="fixed top-0 left-0 right-0 h-16 bg-slate-950/80 backdrop-blur-md border-b border-white/5 z-30 flex items-center justify-between px-6 lg:hidden">
+      <div className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-slate-200 z-30 flex items-center justify-between px-6 lg:hidden">
         <div className="flex items-center gap-2">
           <div className="relative w-8 h-8">
             <Image
               src="/logo-spdent.png"
               alt="SP DENT Logo"
               fill
-              className="object-contain brightness-0 invert"
+              className="object-contain brightness-0"
               priority
             />
           </div>
-          <span className="text-white font-bold text-lg tracking-wide">SP DENT</span>
+          <span className="text-slate-900 font-bold text-lg tracking-wide">SP DENT</span>
         </div>
         <button
           onClick={() => setIsMobileOpen(!isMobileOpen)}
-          className="p-2.5 rounded-xl bg-slate-900 border border-white/5 text-slate-400 hover:text-white transition-colors cursor-pointer shrink-0"
+          className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-900 transition-colors cursor-pointer shrink-0"
         >
           {isMobileOpen ? <X size={18} /> : <Menu size={18} />}
         </button>
@@ -99,36 +99,36 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsMobileOpen(false)}
-            className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-40 ${pathname === '/admin/termini' ? '' : 'lg:hidden'}`}
+            className={`fixed inset-0 bg-black/40 backdrop-blur-xs z-40 ${pathname === '/admin/termini' ? '' : 'lg:hidden'}`}
           />
         )}
       </AnimatePresence>
 
       {/* Sidebar kontejner */}
       <aside
-        className={`fixed inset-y-0 left-0 w-64 z-50 flex flex-col bg-slate-900/95 backdrop-blur-2xl border-r border-white/5 shadow-2xl transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-y-0 left-0 w-64 z-50 flex flex-col bg-white border-r border-slate-200 shadow-lg transition-transform duration-300 ease-in-out ${
           pathname === '/admin/termini'
             ? ''
-            : 'lg:static lg:h-screen lg:w-64 lg:bg-slate-900/80 lg:shadow-none lg:translate-x-0'
+            : 'lg:static lg:h-screen lg:w-64 lg:bg-white lg:shadow-none lg:translate-x-0'
         } ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Brand i logo */}
-        <div className="px-6 py-6 border-b border-white/5 flex items-center justify-between lg:justify-center">
+        <div className="px-6 py-6 border-b border-slate-200 flex items-center justify-between lg:justify-center">
           <div className="relative w-32 h-10 lg:w-36 lg:h-12">
             <Image
               src="/logo-spdent.png"
               alt="SP DENT Logo"
               fill
-              className="object-contain brightness-0 invert"
+              className="object-contain brightness-0"
               priority
             />
           </div>
           {/* Dugme X za zatvaranje u samom sidebaru na mobilnom */}
           <button
             onClick={() => setIsMobileOpen(false)}
-            className="p-1.5 rounded-lg hover:bg-white/5 text-slate-500 hover:text-slate-300 lg:hidden cursor-pointer shrink-0"
+            className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 lg:hidden cursor-pointer shrink-0"
           >
             <X size={18} />
           </button>
@@ -146,7 +146,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
             <LayoutDashboard size={18} className="shrink-0" />
             Kontrolna tabla
             {isActive('/admin', true) && !currentCategory && (
-              <div className="ml-auto w-1.5 h-1.5 rounded-full bg-sky-400" />
+              <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#0284C7]" />
             )}
           </Link>
 
@@ -160,7 +160,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
             <CalendarDays size={18} className="shrink-0" />
             Termini
             {isActive('/admin/termini') && (
-              <div className="ml-auto w-1.5 h-1.5 rounded-full bg-sky-400" />
+              <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#0284C7]" />
             )}
           </Link>
 
@@ -168,7 +168,7 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
           <div className="pt-2">
             <button
               onClick={() => setPatientsOpen(!patientsOpen)}
-              className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-400 transition-colors"
+              className="w-full flex items-center gap-3 px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider hover:text-slate-500 transition-colors"
             >
               <span>Pacijenti</span>
               <ChevronDown
@@ -192,8 +192,8 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
                 >
                   <Users size={16} className={`shrink-0 transition-all ${
                     isCategoryActive(null) && pathname === '/admin' && !currentCategory
-                      ? 'text-sky-400 opacity-100 scale-110'
-                      : 'opacity-70'
+                      ? 'text-[#0284C7] opacity-100 scale-110'
+                      : 'opacity-80'
                   }`} />
                   Svi pacijenti
                 </Link>
@@ -207,8 +207,8 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
                 >
                   <Users size={16} className={`shrink-0 transition-all ${
                     isCategoryActive('regular')
-                      ? 'text-sky-400 opacity-100 scale-110'
-                      : 'opacity-70'
+                      ? 'text-[#0284C7] opacity-100 scale-110'
+                      : 'opacity-80'
                   }`} />
                   Regularni
                 </Link>
@@ -222,8 +222,8 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
                 >
                   <Stethoscope size={16} className={`shrink-0 transition-all ${
                     isCategoryActive('implant')
-                      ? 'text-sky-400 opacity-100 scale-110'
-                      : 'opacity-70'
+                      ? 'text-[#0284C7] opacity-100 scale-110'
+                      : 'opacity-80'
                   }`} />
                   Implantologija
                 </Link>
@@ -237,8 +237,8 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
                 >
                   <Layers size={16} className={`shrink-0 transition-all ${
                     isCategoryActive('proteza')
-                      ? 'text-sky-400 opacity-100 scale-110'
-                      : 'opacity-70'
+                      ? 'text-[#0284C7] opacity-100 scale-110'
+                      : 'opacity-80'
                   }`} />
                   Protetika
                 </Link>
@@ -248,16 +248,16 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
         </nav>
 
         {/* Podaci o korisniku i Odjava */}
-        <div className="px-3 py-4 border-t border-white/5 space-y-2">
-          <div className="px-3 py-2 rounded-xl bg-slate-800/50">
-            <p className="text-slate-500 text-xs mb-0.5">Prijavljeni kao</p>
-            <p className="text-slate-300 text-xs font-medium truncate">{userEmail}</p>
+        <div className="px-3 py-4 border-t border-slate-200 space-y-2">
+          <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200">
+            <p className="text-slate-400 text-xs mb-0.5">Prijavljeni kao</p>
+            <p className="text-slate-750 text-xs font-medium truncate">{userEmail}</p>
           </div>
           <form action={signOut}>
             <button
               id="admin-signout-btn"
               type="submit"
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 cursor-pointer"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 transition-all duration-200 cursor-pointer"
             >
               <LogOut size={16} className="shrink-0" />
               Odjavi se

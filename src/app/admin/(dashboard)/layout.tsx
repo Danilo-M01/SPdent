@@ -26,7 +26,7 @@ export default async function AdminLayout({
   if (!user) redirect('/admin/login')
 
   return (
-    <div className="bg-slate-950 text-slate-100 min-h-screen flex h-screen overflow-hidden">
+    <div className="bg-[#F8FAFC] text-[#0F172A] min-h-screen flex h-screen overflow-hidden">
       <AdminSidebar userEmail={user.email ?? 'admin@spdent.rs'} />
       <main className="flex-1 overflow-y-auto relative z-10 premium-scrollbar">
         <AdminErrorBoundary>

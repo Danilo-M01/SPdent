@@ -150,8 +150,8 @@ export default function XRayUploader({ patientId }: XRayUploaderProps) {
         onClick={() => fileInputRef.current?.click()}
         className={`relative flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-2xl py-10 px-6 cursor-pointer transition-all duration-200 ${
           isDragging
-            ? 'border-sky-400 bg-sky-500/10'
-            : 'border-white/10 hover:border-white/25 bg-slate-950/50 hover:bg-slate-900/50'
+            ? 'border-[#0284C7] bg-sky-50'
+            : 'border-slate-200 hover:border-slate-350 bg-slate-50 hover:bg-slate-100/50'
         }`}
       >
         <input
@@ -163,25 +163,25 @@ export default function XRayUploader({ patientId }: XRayUploaderProps) {
           onChange={e => handleUpload(e.target.files)}
         />
         {uploading ? (
-          <Loader2 size={32} className="text-sky-400 animate-spin" />
+          <Loader2 size={32} className="text-[#0284C7] animate-spin" />
         ) : (
-          <Upload size={28} className="text-slate-500" />
+          <Upload size={28} className="text-slate-400" />
         )}
         <div className="text-center">
-          <p className="text-slate-300 text-sm font-medium">
+          <p className="text-slate-700 text-sm font-semibold">
             {uploading ? 'Upload u toku...' : 'Prevuci RTG/Ortopan snimak ovde'}
           </p>
-          <p className="text-slate-600 text-xs mt-1">PNG, JPEG, PDF · Max {MAX_SIZE_MB}MB po fajlu</p>
+          <p className="text-slate-400 text-xs mt-1">PNG, JPEG, PDF · Max {MAX_SIZE_MB}MB po fajlu</p>
         </div>
       </div>
 
       {error && (
-        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">{error}</div>
+        <div className="p-3 bg-red-50 border border-red-150 rounded-xl text-red-750 font-medium text-sm">{error}</div>
       )}
 
       {/* Gallery */}
       {isLoading ? (
-        <div className="text-center py-6 text-slate-500 text-sm">Učitavanje snimaka...</div>
+        <div className="text-center py-6 text-slate-650 text-sm font-semibold">Učitavanje snimaka...</div>
       ) : files.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <AnimatePresence>
@@ -191,8 +191,8 @@ export default function XRayUploader({ patientId }: XRayUploaderProps) {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className={`group relative bg-slate-900 border border-white/10 rounded-xl overflow-hidden aspect-square ${
-                  file.type !== 'application/pdf' ? 'cursor-pointer hover:border-white/20' : 'cursor-pointer hover:border-sky-500/20'
+                className={`group relative bg-white border border-slate-200 rounded-xl overflow-hidden aspect-square shadow-sm ${
+                  file.type !== 'application/pdf' ? 'cursor-pointer hover:border-slate-350' : 'cursor-pointer hover:border-[#0284C7]/30'
                 }`}
                 onClick={() => {
                   if (file.type === 'application/pdf') {
@@ -203,9 +203,9 @@ export default function XRayUploader({ patientId }: XRayUploaderProps) {
                 }}
               >
                 {file.type === 'application/pdf' ? (
-                  <div className="flex flex-col items-center justify-center h-full text-slate-400 p-4">
-                    <FileIcon size={32} className="mb-2 text-sky-400" />
-                    <p className="text-xs text-center truncate w-full">{file.name}</p>
+                  <div className="flex flex-col items-center justify-center h-full text-slate-500 p-4">
+                    <FileIcon size={32} className="mb-2 text-sky-600" />
+                    <p className="text-xs text-center font-semibold truncate w-full">{file.name}</p>
                   </div>
                 ) : (
                   <img
@@ -216,7 +216,7 @@ export default function XRayUploader({ patientId }: XRayUploaderProps) {
                 )}
                 
                 {/* Overlay on hover */}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                   {file.type !== 'application/pdf' && (
                     <button
                       onClick={e => { e.stopPropagation(); setZoomedImage(file) }}
@@ -228,7 +228,7 @@ export default function XRayUploader({ patientId }: XRayUploaderProps) {
                   )}
                   <button
                     onClick={e => { e.stopPropagation(); handleDelete(file) }}
-                    className="p-2 bg-red-500/20 hover:bg-red-500/40 rounded-xl text-red-400 transition-colors"
+                    className="p-2 bg-red-500/20 hover:bg-red-500/45 rounded-xl text-red-200 transition-colors"
                     title="Obriši"
                   >
                     <X size={16} />
@@ -236,16 +236,16 @@ export default function XRayUploader({ patientId }: XRayUploaderProps) {
                 </div>
 
                 {/* Date badge */}
-                <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1">
-                  <p className="text-slate-400 text-xs truncate">{formatDate(file.uploadedAt)}</p>
+                <div className="absolute bottom-0 left-0 right-0 bg-white/85 backdrop-blur-xs px-2 py-1">
+                  <p className="text-slate-700 text-xs font-semibold truncate">{formatDate(file.uploadedAt)}</p>
                 </div>
               </motion.div>
             ))}
           </AnimatePresence>
         </div>
       ) : hasLoaded ? (
-        <div className="text-center py-8 text-slate-600 text-sm">
-          <ImageIcon size={24} className="mx-auto mb-2 opacity-40" />
+        <div className="text-center py-8 text-slate-500 text-sm">
+          <ImageIcon size={24} className="mx-auto mb-2 opacity-30 text-slate-400" />
           Nema sačuvanih RTG snimaka za ovog pacijenta
         </div>
       ) : null}

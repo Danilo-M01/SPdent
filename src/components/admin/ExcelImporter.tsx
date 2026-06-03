@@ -341,20 +341,20 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
     : []
 
   return (
-    <div className="bg-slate-900 border border-white/10 rounded-2xl p-6 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
       <div className="flex items-center justify-between mb-6 shrink-0">
         <div>
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <FileSpreadsheet className="text-sky-400" />
+          <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+            <FileSpreadsheet className="text-[#0284C7]" />
             Import Pacijenata
           </h2>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="text-slate-500 text-sm mt-1">
             Ubacite .xlsx ili .csv fajl sa pacijentima
           </p>
         </div>
         <button
           onClick={onClose}
-          className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"
         >
           <X size={18} />
         </button>
@@ -366,11 +366,11 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
           animate={{ opacity: 1, scale: 1 }}
           className="flex flex-col items-center justify-center py-12"
         >
-          <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mb-4">
+          <div className="w-16 h-16 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4">
             <CheckCircle2 size={32} />
           </div>
-          <h3 className="text-xl font-semibold text-white mb-2">Uspešno uvezeno!</h3>
-          <p className="text-slate-400">Pacijenti su dodati u bazu.</p>
+          <h3 className="text-xl font-bold text-slate-900 mb-2">Uspešno uvezeno!</h3>
+          <p className="text-slate-500">Pacijenti su dodati u bazu.</p>
         </motion.div>
       ) : (
         <>
@@ -379,12 +379,12 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
               {...getRootProps()}
               className={`
                 border-2 border-dashed rounded-2xl p-10 flex flex-col items-center justify-center cursor-pointer transition-colors
-                ${isDragActive ? 'border-sky-500 bg-sky-500/10' : 'border-slate-700 hover:border-sky-500/50 hover:bg-white/5'}
+                ${isDragActive ? 'border-[#0284C7] bg-sky-50' : 'border-slate-300 hover:border-[#0284C7] hover:bg-slate-50/50'}
               `}
             >
               <input {...getInputProps()} />
-              <Upload className={`w-10 h-10 mb-4 ${isDragActive ? 'text-sky-400' : 'text-slate-500'}`} />
-              <p className="text-slate-300 font-medium text-center">
+              <Upload className={`w-10 h-10 mb-4 ${isDragActive ? 'text-[#0284C7]' : 'text-slate-400'}`} />
+              <p className="text-slate-700 font-semibold text-center">
                 Prevucite fajl ovde ili kliknite da odaberete
               </p>
               <p className="text-slate-500 text-sm mt-2 text-center">
@@ -395,13 +395,13 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
             <div className="flex-1 overflow-hidden flex flex-col min-h-0">
               <div className="flex items-center justify-between mb-4 shrink-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-sky-400 bg-sky-500/10 px-3 py-1 rounded-full">
+                  <span className="text-sm font-semibold text-[#0284C7] bg-[#E0F2FE] border border-sky-100 px-3 py-1 rounded-full">
                     Pronađeno {dataPreview.length} redova
                   </span>
                 </div>
                 <button
                   onClick={() => setDataPreview([])}
-                  className="text-xs text-slate-400 hover:text-slate-200"
+                  className="text-xs text-slate-500 hover:text-slate-800 font-medium"
                 >
                   Učitaj drugi fajl
                 </button>
@@ -409,29 +409,29 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
 
               <div
                 data-lenis-prevent
-                className="flex-1 overflow-auto border border-white/5 rounded-xl bg-slate-950/50 mb-6 premium-scrollbar"
+                className="flex-1 overflow-auto border border-slate-200 rounded-xl bg-slate-50 mb-6 premium-scrollbar"
               >
                 <table className="w-full text-left text-sm whitespace-nowrap">
-                  <thead className="bg-slate-900 sticky top-0 border-b border-white/5">
+                  <thead className="bg-slate-100 sticky top-0 border-b border-slate-200">
                     <tr>
                       {headers.map((key) => (
-                        <th key={key} className="px-4 py-3 text-slate-400 font-medium">
+                        <th key={key} className="px-4 py-3 text-slate-700 font-semibold">
                           {headerMap[key] || key}
                         </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
+                  <tbody className="divide-y divide-slate-100">
                     {dataPreview.slice(0, 50).map((row, i) => (
                       <tr 
                         key={i} 
-                        className="hover:bg-white/5"
+                        className="hover:bg-slate-100/50"
                       >
                         {headers.map((key, j) => {
                           const val = row[key as keyof ImportPatient]
                           if (key === 'phone' && val === '/') {
                             return (
-                              <td key={j} className="px-4 py-3 text-slate-500 font-medium italic">
+                              <td key={j} className="px-4 py-3 text-slate-400 font-medium italic">
                                 /
                               </td>
                             )
@@ -442,7 +442,7 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
                               if (dPart && tPart) {
                                 const [y, m, d] = dPart.split('-')
                                 return (
-                                  <td key={j} className="px-4 py-3 text-emerald-400 font-medium">
+                                  <td key={j} className="px-4 py-3 text-emerald-600 font-medium">
                                     {`${d}.${m}.${y}. u ${tPart}`}
                                   </td>
                                 )
@@ -450,9 +450,9 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
                             } catch {}
                           }
                           return (
-                            <td key={j} className="px-4 py-3 text-slate-300">
+                            <td key={j} className="px-4 py-3 text-slate-700">
                               {val === null || val === undefined || val === '' ? (
-                                <span className="text-slate-600">-</span>
+                                <span className="text-slate-400">-</span>
                               ) : String(val)}
                             </td>
                           )
@@ -464,9 +464,9 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
               </div>
 
               {error && (
-                <div className="mb-4 flex items-center gap-2 text-red-400 bg-red-500/10 p-3 rounded-xl shrink-0">
+                <div className="mb-4 flex items-center gap-2 text-red-750 bg-red-50 border border-red-200 p-3 rounded-xl shrink-0">
                   <AlertCircle size={16} />
-                  <span className="text-sm">{error}</span>
+                  <span className="text-sm font-medium">{error}</span>
                 </div>
               )}
 
@@ -474,14 +474,14 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
                 <button
                   onClick={onClose}
                   disabled={isUploading}
-                  className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors disabled:opacity-50"
                 >
                   Otkaži
                 </button>
                 <button
                   onClick={handleUpload}
                   disabled={isUploading || validRowsCount === 0}
-                  className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-sky-500 hover:bg-sky-400 text-white transition-colors flex items-center gap-2 disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-[#0284C7] hover:bg-sky-600 text-white transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm"
                 >
                   {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
                   Započni uvoz ({validRowsCount})

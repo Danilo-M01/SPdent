@@ -25,9 +25,9 @@ interface AdminDashboardClientProps {
 }
 
 const CATEGORY_META: Record<string, { label: string; color: string }> = {
-  regular: { label: 'Regularni pacijenti', color: 'text-slate-300' },
-  implant: { label: 'Implantologija', color: 'text-sky-300' },
-  proteza: { label: 'Protetika', color: 'text-violet-300' },
+  regular: { label: 'Regularni pacijenti', color: 'text-slate-600' },
+  implant: { label: 'Implantologija', color: 'text-[#0284C7]' },
+  proteza: { label: 'Protetika', color: 'text-violet-750' },
 }
 
 const statCards = (stats: Stats) => [
@@ -37,10 +37,10 @@ const statCards = (stats: Stats) => [
 ]
 
 const colorMap: Record<string, string> = {
-  sky: 'bg-sky-500/10 border-sky-500/20 text-sky-400',
-  red: 'bg-red-500/10 border-red-500/20 text-red-400',
-  amber: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
-  emerald: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
+  sky: 'bg-sky-50 border border-sky-100 text-[#0EA5E9]',
+  red: 'bg-red-50 border border-red-100 text-[#EF4444]',
+  amber: 'bg-amber-50 border border-amber-100 text-[#F59E0B]',
+  emerald: 'bg-emerald-50 border border-emerald-100 text-[#10B981]',
 }
 
 type SortBy = 'appointment' | 'alphabetical' | 'newest' | 'recently_updated'
@@ -149,13 +149,13 @@ export default function AdminDashboardClient({
   const catMeta = activeCategory ? CATEGORY_META[activeCategory] : null
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6 pt-20 lg:p-8">
+    <div className="min-h-screen bg-[#F8FAFC] p-6 pt-20 lg:p-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <h1 className="text-2xl font-bold text-white tracking-tight">Kontrolna tabla</h1>
-            <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-900/60 border border-white/5 text-xs select-none shrink-0">
+            <h1 className="text-2xl font-bold text-[#0F172A] tracking-tight">Kontrolna tabla</h1>
+            <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-white border border-[#E2E8F0] text-xs select-none shrink-0 shadow-sm">
               <span className="relative flex h-2 w-2">
                 {smsStatus === 'online' && (
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -165,7 +165,7 @@ export default function AdminDashboardClient({
                   smsStatus === 'offline' ? 'bg-rose-500' : 'bg-amber-500'
                 }`}></span>
               </span>
-              <span className="text-slate-400 font-medium">
+              <span className="text-slate-500 font-medium">
                 SMS podsetnici: {smsStatus === 'online' ? 'ONLINE' : smsStatus === 'offline' ? 'OFFLINE' : 'Provera...'}
               </span>
             </div>
@@ -175,19 +175,19 @@ export default function AdminDashboardClient({
               </span>
             )}
           </div>
-          <p className="text-slate-400 text-sm mt-1">Upravljanje pacijentima i terminima</p>
+          <p className="text-slate-550 text-sm mt-1">Upravljanje pacijentima i terminima</p>
         </div>
         <div className="flex gap-3">
           <button
             onClick={() => setShowImportModal(true)}
-            className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-white/10 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-all duration-200 cursor-pointer shrink-0"
+            className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-sm font-medium px-4 py-2.5 rounded-xl transition-all duration-200 cursor-pointer shrink-0 shadow-sm"
           >
             Import
           </button>
           <button
             id="add-patient-btn"
             onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center gap-2 bg-sky-500 hover:bg-sky-400 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-all duration-200 cursor-pointer shrink-0"
+            className="inline-flex items-center gap-2 bg-[#0284C7] hover:bg-sky-600 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-all duration-200 cursor-pointer shrink-0 shadow-sm"
           >
             <Plus size={16} />
             Novi pacijent
@@ -203,11 +203,11 @@ export default function AdminDashboardClient({
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-xl p-4 flex items-center justify-between gap-4"
+            className="bg-white border border-[#E2E8F0] shadow-sm rounded-xl p-4 flex items-center justify-between gap-4"
           >
             <div className="min-w-0">
               <p className="text-slate-500 text-xs font-medium truncate">{label}</p>
-              <p className="text-xl font-bold text-white mt-1 tracking-tight">{value}</p>
+              <p className="text-xl font-bold text-slate-900 mt-1 tracking-tight">{value}</p>
             </div>
             <div className={`p-2.5 rounded-lg border shrink-0 ${colorMap[color]}`}>
               <Icon size={16} />
@@ -222,11 +222,11 @@ export default function AdminDashboardClient({
           <GlobalSearch query={query} onQueryChange={(val) => { setQuery(val); setVisibleCount(48); }} totalCount={filteredPatients.length} />
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Filter size={15} className="text-slate-500" />
+          <Filter size={15} className="text-slate-550" />
           <select
             value={sortBy}
             onChange={(e) => { setSortBy(e.target.value as SortBy); setVisibleCount(48); }}
-            className="bg-slate-900 border border-white/10 text-slate-300 text-sm rounded-xl px-4 py-2.5 outline-none focus:border-sky-500/50 appearance-none cursor-pointer"
+            className="bg-white border border-slate-200 text-slate-700 text-sm rounded-xl px-4 py-2.5 outline-none focus:border-[#0284C7] appearance-none cursor-pointer shadow-sm"
           >
             <option value="appointment">Najbliži termin prvo</option>
             <option value="alphabetical">Abecedno (A–Z)</option>
@@ -243,14 +243,14 @@ export default function AdminDashboardClient({
           animate={{ opacity: 1 }}
           className="text-center py-20"
         >
-          <div className="w-16 h-16 rounded-2xl bg-slate-800 border border-white/5 flex items-center justify-center mx-auto mb-4">
-            <Users size={24} className="text-slate-500" />
+          <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center mx-auto mb-4">
+            <Users size={24} className="text-slate-400" />
           </div>
-          <p className="text-slate-400 font-medium">
+          <p className="text-slate-700 font-medium">
             {query ? 'Nema pacijenata koji odgovaraju pretrazi' : 'Nema pacijenata'}
           </p>
           {!query && (
-            <p className="text-slate-600 text-sm mt-1">
+            <p className="text-slate-500 text-sm mt-1">
               Kliknite &ldquo;Novi pacijent&rdquo; da dodate prvog
             </p>
           )}
@@ -269,7 +269,7 @@ export default function AdminDashboardClient({
             <div className="flex justify-center mt-10">
               <button
                 onClick={() => setVisibleCount(prev => prev + 48)}
-                className="bg-slate-900/60 hover:bg-slate-800 border border-white/5 hover:border-white/10 text-slate-300 hover:text-white px-6 py-3 rounded-2xl text-sm font-semibold tracking-wide transition-all cursor-pointer shadow-lg hover:shadow-xl shrink-0"
+                className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 px-6 py-3 rounded-2xl text-sm font-semibold tracking-wide transition-all cursor-pointer shadow-sm hover:shadow-md shrink-0"
               >
                 Prikaži još pacijenata ({filteredPatients.length - visibleCount} preostalo)
               </button>
