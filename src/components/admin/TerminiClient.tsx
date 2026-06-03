@@ -1058,7 +1058,7 @@ export default function TerminiClient({
                                 <span className={`text-[9px] font-black ${docColor.text}`}>
                                   {formatTime(appt.appointment_datetime)}
                                 </span>
-                                <span className={`text-[8.5px] font-extrabold px-1 py-px rounded-full ${docColor.badge} leading-none`}>
+                                <span className="text-slate-650 font-bold shrink-0 text-[8.5px] opacity-90 leading-none">
                                   {appt.doctor_name?.split(' ')?.[1] || 'Zubar'}
                                 </span>
                               </div>
@@ -1169,7 +1169,7 @@ export default function TerminiClient({
                               <span className="text-slate-800 font-black flex-1 text-[10.5px] ml-0.5 break-words leading-snug">
                                 {appt.patient?.first_name} {appt.patient?.last_name || ''}
                               </span>
-                              <span className="text-slate-600 font-bold shrink-0 text-[8.5px] opacity-90 px-1 py-px rounded bg-black/5 border border-black/5 leading-none">
+                              <span className="text-slate-650 font-bold shrink-0 text-[8.5px] opacity-90 leading-none">
                                 {appt.doctor_name?.split(' ')?.[1] || 'Zubar'}
                               </span>
                             </div>
@@ -1340,22 +1340,18 @@ export default function TerminiClient({
             >
               <div 
                 data-lenis-prevent
-                className="w-full max-w-lg bg-slate-900 border border-white/10 rounded-3xl shadow-2xl shadow-black/80 max-h-[90vh] overflow-y-auto premium-scrollbar"
+                className="w-full max-w-lg bg-white border border-slate-200 rounded-3xl shadow-2xl shadow-slate-200/50 max-h-[90vh] overflow-y-auto premium-scrollbar"
               >
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center">
-                      <UserPlus size={16} className="text-sky-400" />
-                    </div>
-                    <div>
-                      <h2 className="text-white font-extrabold text-base">Brzo zakazivanje</h2>
-                      <p className="text-slate-400 text-[11px]">Popunite podatke u 1-2 klika</p>
+                      <UserPlus size={16} className="text-sky-600" />
                     </div>
                   </div>
                   <button 
                     onClick={() => setIsBookOpen(false)}
-                    className="p-1.5 rounded-lg bg-slate-950 text-slate-400 hover:text-white border border-white/5 cursor-pointer"
+                    className="p-1.5 rounded-lg bg-slate-50 text-slate-500 hover:text-slate-700 hover:bg-slate-100 border border-slate-200 cursor-pointer"
                   >
                     <X size={14} />
                   </button>
@@ -1364,13 +1360,13 @@ export default function TerminiClient({
                 {/* Form Body */}
                 <div className="p-6 space-y-5">
                   {successMsg && (
-                    <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400 text-sm font-bold flex items-center gap-2">
+                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-sm font-bold flex items-center gap-2">
                       <span>✅</span> {successMsg}
                     </div>
                   )}
 
                   {errorMsg && (
-                    <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400 text-sm font-bold flex items-center gap-2">
+                    <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-sm font-bold flex items-center gap-2">
                       <span>⚠️</span> {errorMsg}
                     </div>
                   )}
@@ -1378,7 +1374,7 @@ export default function TerminiClient({
                   {/* Unified Patient Search & Input */}
                   <div className="space-y-4">
                     <div className="relative">
-                      <label className="block text-xs font-bold text-slate-400 mb-1.5 uppercase tracking-wider">
+                      <label className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
                         Pacijent (Ime i prezime) *
                       </label>
                       <div className="relative">
@@ -1394,11 +1390,11 @@ export default function TerminiClient({
                           onFocus={() => setShowDropdown(true)}
                           onClick={() => setShowDropdown(true)}
                           placeholder="Unesite ime pacijenta (npr. Marko Marković)..."
-                          className={`w-full bg-slate-950 border hover:border-white/20 focus:border-sky-500/50 rounded-xl pl-10 pr-9 py-2.5 text-white outline-none text-sm font-bold placeholder-slate-600 transition-colors ${
-                            selectedPatientId ? 'border-emerald-500/50 focus:border-emerald-500/50' : 'border-white/10'
+                          className={`w-full bg-slate-50 border hover:border-slate-350 focus:border-sky-500 focus:bg-white rounded-xl pl-10 pr-9 py-2.5 text-slate-900 outline-none text-sm font-bold placeholder-slate-400 transition-colors ${
+                            selectedPatientId ? 'border-emerald-500 focus:border-emerald-500' : 'border-slate-200'
                           }`}
                         />
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600" size={16} />
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                         {patientSearch && (
                           <button
                             type="button"
@@ -1408,7 +1404,7 @@ export default function TerminiClient({
                               setNewPhone('')
                               setShowDropdown(false)
                             }}
-                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
                           >
                             <X size={14} />
                           </button>
@@ -1425,7 +1421,7 @@ export default function TerminiClient({
                               setShowDropdown(false)
                             }}
                           />
-                          <div className="absolute z-30 w-full mt-1.5 bg-slate-950 border border-white/10 rounded-xl shadow-2xl shadow-black/80 overflow-hidden divide-y divide-white/5 max-h-56 overflow-y-auto premium-scrollbar">
+                          <div className="absolute z-30 w-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl shadow-slate-200/50 overflow-hidden divide-y divide-slate-100 max-h-56 overflow-y-auto premium-scrollbar">
                             {filteredPatients.map((p) => (
                               <div
                                 key={p.id}
@@ -1435,17 +1431,17 @@ export default function TerminiClient({
                                   setNewPhone(p.phone)
                                   setShowDropdown(false)
                                 }}
-                                className="px-3.5 py-2.5 hover:bg-slate-900 cursor-pointer flex items-center justify-between gap-3 transition-colors relative z-30"
+                                className="px-3.5 py-2.5 hover:bg-slate-55 cursor-pointer flex items-center justify-between gap-3 transition-colors relative z-30"
                               >
                                 <div>
-                                  <p className="text-white font-extrabold text-xs">{p.first_name} {p.last_name || ''}</p>
+                                  <p className="text-slate-900 font-extrabold text-xs">{p.first_name} {p.last_name || ''}</p>
                                   <p className="text-slate-500 text-[10px] font-mono font-bold mt-0.5">
                                     {p.phone?.startsWith('/') ? '/' : p.phone}
                                   </p>
                                 </div>
-                                <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full ${
-                                  p.category === 'implant' ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20' :
-                                  p.category === 'proteza' ? 'bg-violet-500/10 text-violet-400 border border-violet-500/20' : 'bg-slate-800 text-slate-400'
+                                <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full border ${
+                                  p.category === 'implant' ? 'bg-sky-50 text-sky-700 border-sky-200' :
+                                  p.category === 'proteza' ? 'bg-violet-50 text-violet-750 border-violet-250' : 'bg-slate-100 text-slate-650 border-slate-200'
                                 }`}>
                                   {CATEGORY_LABELS[p.category]?.label || 'Regularni'}
                                 </span>
@@ -1466,7 +1462,7 @@ export default function TerminiClient({
                           className="overflow-hidden"
                         >
                           <div className="space-y-1.5 pt-1">
-                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
+                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
                               Broj telefona novog pacijenta * (ili '/' ako nema telefon)
                             </label>
                             <input
@@ -1474,7 +1470,7 @@ export default function TerminiClient({
                               value={newPhone}
                               onChange={(e) => setNewPhone(e.target.value)}
                               placeholder="npr. +3816..."
-                              className="w-full bg-slate-950 border border-white/10 hover:border-white/20 focus:border-sky-500/50 rounded-xl px-3.5 py-2.5 text-white outline-none text-sm font-bold placeholder-slate-600 transition-colors"
+                              className="w-full bg-slate-50 border border-slate-200 hover:border-slate-350 focus:border-sky-500 focus:bg-white rounded-xl px-3.5 py-2.5 text-slate-900 outline-none text-sm font-bold placeholder-slate-400 transition-colors"
                             />
                           </div>
                         </motion.div>
@@ -1482,7 +1478,7 @@ export default function TerminiClient({
                     </AnimatePresence>
 
                     {selectedPatientId && (
-                      <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-2.5 rounded-xl">
+                      <div className="flex items-center gap-2 text-emerald-800 text-xs font-bold bg-emerald-50 border border-emerald-250 px-3.5 py-2.5 rounded-xl">
                         <Check size={14} />
                         <span>Izabran postojeći pacijent. Telefon: <strong>{newPhone?.startsWith('/') ? '/' : newPhone || '/'}</strong></span>
                       </div>
@@ -1492,26 +1488,26 @@ export default function TerminiClient({
                   {/* Standard Appointment Parameters */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Datum *</label>
+                      <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Datum *</label>
                       <input
                         type="date"
                         value={bookDate}
                         onChange={(e) => setBookDate(e.target.value)}
-                        className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-bold outline-none focus:border-sky-500 text-sm"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-bold outline-none focus:border-sky-500 text-sm"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Vreme *</label>
+                      <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Vreme *</label>
                       {bookingTimeSlots.length === 0 ? (
-                        <div className="w-full bg-red-950/50 border border-red-500/20 rounded-xl px-3.5 py-2.5 text-red-400 font-bold text-xs text-center">
+                        <div className="w-full bg-red-50 border border-red-200 rounded-xl px-3.5 py-2.5 text-red-700 font-bold text-xs text-center">
                           Klinika ne radi
                         </div>
                       ) : (
                         <select
                           value={bookTime}
                           onChange={(e) => setBookTime(e.target.value)}
-                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-bold outline-none focus:border-sky-500 text-sm"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-bold outline-none focus:border-sky-500 text-sm"
                         >
                           {bookingTimeSlots.map((time) => (
                             <option key={time} value={time}>
@@ -1523,11 +1519,11 @@ export default function TerminiClient({
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Lekar *</label>
+                      <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Lekar *</label>
                       <select
                         value={bookDoctor}
                         onChange={(e) => setBookDoctor(e.target.value)}
-                        className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-bold outline-none focus:border-sky-500 text-sm"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-bold outline-none focus:border-sky-500 text-sm"
                       >
                         {DOCTORS.map(d => (
                           <option key={d} value={d}>{d}</option>
@@ -1537,13 +1533,13 @@ export default function TerminiClient({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Planirana intervencija</label>
+                    <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Planirana intervencija</label>
                     <textarea
                       value={bookTreatment}
                       onChange={(e) => setBookTreatment(e.target.value)}
                       placeholder="npr. Kontrola, popravka, brušenje..."
                       rows={2}
-                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-bold outline-none focus:border-sky-500 placeholder-slate-600 text-sm resize-none h-16"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-bold outline-none focus:border-sky-500 placeholder-slate-400 text-sm resize-none h-16"
                     />
                   </div>
 
@@ -1552,7 +1548,7 @@ export default function TerminiClient({
                     <button
                       type="button"
                       onClick={() => setIsBookOpen(false)}
-                      className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-bold transition-colors cursor-pointer"
+                      className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-xl text-sm font-bold transition-colors cursor-pointer"
                     >
                       Otkaži
                     </button>
@@ -1560,7 +1556,7 @@ export default function TerminiClient({
                       type="button"
                       onClick={handleBookSubmit}
                       disabled={isSubmitting || (!selectedPatientId && !patientSearch.trim()) || bookingTimeSlots.length === 0}
-                      className="flex-1 py-2.5 bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 text-white rounded-xl text-sm font-extrabold shadow-lg shadow-sky-500/10 cursor-pointer disabled:cursor-not-allowed transition-all"
+                      className="flex-1 py-2.5 bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-600 hover:to-indigo-600 disabled:from-slate-100 disabled:to-slate-100 disabled:text-slate-400 text-white rounded-xl text-sm font-extrabold shadow-lg shadow-sky-500/10 cursor-pointer disabled:cursor-not-allowed transition-all"
                     >
                       {isSubmitting ? 'Zakazivanje...' : 'Zakaži Termin'}
                     </button>
