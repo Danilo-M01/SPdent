@@ -335,8 +335,21 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
+  const onDrop = useCallback((acceptedFiles: File[], fileRejections: any[]) => {
     setError(null)
+    if (fileRejections && fileRejections.length > 0) {
+      const rejection = fileRejections[0]
+      const fileError = rejection.errors[0]
+      let msg = 'Učitavanje fajla nije uspelo.'
+      if (fileError?.code === 'file-invalid-type') {
+        msg = `Format fajla "${rejection.file.name}" nije podržan. Molimo učitajte validan Excel ili CSV fajl.`
+      } else if (fileError?.message) {
+        msg = `Greška sa fajlom "${rejection.file.name}": ${fileError.message}`
+      }
+      setError(msg)
+      return
+    }
+
     const file = acceptedFiles[0]
     if (!file) return
 
@@ -379,7 +392,8 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
         setDataPreview(cleanedData)
       } catch (err) {
         console.error(err)
-        setError('Greška pri čitanju fajla. Proverite da li je validan Excel ili CSV.')
+        const errMsg = err instanceof Error ? err.message : String(err)
+        setError(`Greška pri čitanju fajla: ${errMsg}. Proverite da li je validan Excel ili CSV.`)
       }
     }
     reader.readAsArrayBuffer(file)
@@ -477,7 +491,7 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
                 Prevucite fajl ovde ili kliknite da odaberete
               </p>
               <p className="text-slate-500 text-sm mt-2 text-center">
-                Podržani formati: Excel (.xlsx, .xls, .xlsm) i CSV (.csv, .cs) — sve verzije od Excel 95 do danas
+                Podržani formati: Excel (.xlsx, .xls, .xlsm) i CSV (.csv, .cs)
               </p>
             </div>
           ) : (

@@ -573,7 +573,7 @@ export async function bulkImportPatients(patients: ImportPatient[]): Promise<Act
 
     if (error) {
       console.error('[bulkImportPatients] DB Error:', error.message)
-      return { success: false, error: 'Greška pri uvozu pacijenata. Proverite format.' }
+      return { success: false, error: `Greška pri uvozu pacijenata u bazu: ${error.message}` }
     }
 
     // Map upserted patients phone -> ID
@@ -644,7 +644,8 @@ export async function bulkImportPatients(patients: ImportPatient[]): Promise<Act
     return { success: true }
   } catch (err) {
     console.error('[bulkImportPatients] Unexpected:', err)
-    return { success: false, error: 'Došlo je do neočekivane greške pri uvozu.' }
+    const msg = err instanceof Error ? err.message : String(err)
+    return { success: false, error: `Neočekivana greška pri uvozu: ${msg}` }
   }
 }
 
