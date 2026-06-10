@@ -486,7 +486,7 @@ export async function bulkImportPatients(patients: ImportPatient[]): Promise<Act
     if (existing) {
       for (const p of existing) {
         if (p.phone.startsWith('/-no-phone-')) {
-          const key = `${p.first_name.trim().toLowerCase()}_${(p.last_name || '').trim().toLowerCase()}`
+          const key = `${p.first_name.trim().toLowerCase()}${(p.last_name || '').trim().toLowerCase()}`.replace(/[\s\._-]/g, '')
           existingNoPhoneMap.set(key, p.phone)
         } else if (!p.phone.startsWith('/')) {
           existingPhoneMap.set(p.phone, { first_name: p.first_name, last_name: p.last_name })
@@ -502,7 +502,7 @@ export async function bulkImportPatients(patients: ImportPatient[]): Promise<Act
       let phoneVal = sanitizePhone(p.phone)
       const fName = sanitizeText(p.first_name) || 'Nepoznato'
       const lName = sanitizeText(p.last_name) || ''
-      const nameKey = `${fName.trim().toLowerCase()}_${lName.trim().toLowerCase()}`
+      const nameKey = `${fName.trim().toLowerCase()}${lName.trim().toLowerCase()}`.replace(/[\s\._-]/g, '')
       
       let noteExtra = ''
 

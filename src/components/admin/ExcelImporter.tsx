@@ -125,104 +125,187 @@ function mapDoctorName(raw: unknown): string | null {
 }
 
 function mapImportedRow(row: Record<string, unknown>): ImportPatient {
-  const norm: Record<string, unknown> = {}
+  // ── Regex patterns za prepoznavanje podataka ───────────────────────────────
+  const PHONE_RE = /^\+?[\d\s\-\(\)\.]{6,20}$/
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  const NAME_RE  = /^[A-Za-zÀ-žČčĆćŠšŽžĐđ][A-Za-zÀ-žČčĆćŠšŽžĐđ\s\-'\.]{1,59}$/
+
+  // ── Normalizacija svih ključeva (bez razmaka, tačaka, crtica, slova mala) ──
+  const normMap: Record<string, { val: string; origKey: string }> = {}
   for (const key in row) {
-    const normKey = key.toLowerCase().trim().replace(/[\s\._-]/g, '')
-    norm[normKey] = row[key]
+    const nk = key.toLowerCase().trim().replace(/[\s\.\-_\/\(\)\[\]#*:;,]+/g, '')
+    normMap[nk] = { val: String(row[key] ?? '').trim(), origKey: key }
   }
 
-  // Set of keys that are explicitly handled and mapped to database columns
-  const handledKeys = new Set([
-    'ime', 'firstname', 'name', 'pacijent', 'klijent', 'imeiprezime', 'imeprezime',
-    'prezime', 'lastname',
-    'telefon', 'phone', 'tel', 'mobilni', 'kontakt',
-    'email', 'emailadresa', 'mail', 'emailaddress',
-    'imeroditelja', 'parentname', 'roditelj', 'parent', 'majka', 'otac',
-    'alergije', 'alergija', 'medicalalerts', 'upozorenje', 'upozorenja',
-    'kategorija', 'category',
-    'napomena', 'notes', 'note', 'komentar',
-    'datumrođenja', 'datumrodenja', 'datumrodjenja', 'rodjen', 'rođen', 'dob',
-    'prethodneintervencije', 'intervencije',
-    'izabranidoktor', 'doktor', 'lekar', 'ordinirajućilekar', 'ordinirajucilekar',
-    'sledećipregled', 'sledecipregled', 'pregled', 'termin', 'vreme', 'datum', 'datumtermina',
-    'datumvreme', 'datumivreme', 'sledećitermin', 'sledecitermin', 'sledećidolazak', 'sledecidolazak',
-    'ukupandug', 'dug', 'dugrsd', 'ukupandugrsd',
-    'pacijentid', 'id'
-  ])
+  // Set za praćenje koje kolone su već mapovane (da ne idu i u notes)
+  const usedNormKeys = new Set<string>()
 
-  // 1. Ime (first_name)
-  let firstName = norm.ime || norm.firstname || norm.name || norm.pacijent || norm.klijent || '';
-  const fullName = norm.imeiprezime || norm.imeprezime || '';
-  let lastName = norm.prezime || norm.lastname || '';
-  if (!firstName && fullName) {
-    const parts = String(fullName).trim().split(/\s+/)
-    firstName = parts[0] || ''
-    if (parts.length > 1) {
-      lastName = parts.slice(1).join(' ')
+  // ── Smart finder: tačno → fuzzy substring → preskače prazne ──────────────
+  function find(keywords: string[]): string {
+    // 1. Tačno podudaranje normalizovanog ključa
+    for (const kw of keywords) {
+      if (normMap[kw]?.val) {
+        usedNormKeys.add(kw)
+        return normMap[kw].val
+      }
+    }
+    // 2. Fuzzy: normalizovani ključ SADRŽI ključnu reč (ili obrnuto)
+    for (const kw of keywords) {
+      for (const nk in normMap) {
+        if (!usedNormKeys.has(nk) && normMap[nk].val) {
+          if (nk.includes(kw) || kw.includes(nk)) {
+            usedNormKeys.add(nk)
+            return normMap[nk].val
+          }
+        }
+      }
+    }
+    return ''
+  }
+
+  // ── 1. Ime i Prezime ──────────────────────────────────────────────────────
+  // Puno ime u jednoj koloni
+  let fullName = find([
+    'imeiprezime','imeprezime','punoime','fullname','imepacijenta',
+    'nazivpacijenta','pacijent','klijent','osiguranik','korisnik','stranka'
+  ])
+  // Odvojeno ime + prezime
+  let firstName = find(['ime','firstname','name'])
+  let lastName  = find(['prezime','lastname','porodicnoime','porodičnoime'])
+
+  if (firstName && lastName) {
+    firstName = `${firstName} ${lastName}`.trim()
+    lastName  = ''
+  } else if (!firstName && fullName) {
+    firstName = fullName
+  }
+
+  // Ako nije pronađeno ni po ključu — pokušaj po obliku vrednosti (poslednji pokušaj)
+  if (!firstName) {
+    for (const nk in normMap) {
+      if (!usedNormKeys.has(nk)) {
+        const { val } = normMap[nk]
+        if (NAME_RE.test(val) && !PHONE_RE.test(val) && !EMAIL_RE.test(val)) {
+          firstName = val
+          usedNormKeys.add(nk)
+          break
+        }
+      }
     }
   }
-  if (!firstName) {
-    firstName = 'Nepoznato'
+  if (!firstName) firstName = 'Nepoznato'
+
+  // ── 2. Telefon ────────────────────────────────────────────────────────────
+  let phone = find([
+    'telefon','phone','tel','mobilni','kontakt','gsm','mobitel','mob',
+    'brtelefona','brojtelefona','brtel','cellular','celular','handy','natel'
+  ])
+  // Fallback: prepoznaj po obliku vrednosti
+  if (!phone) {
+    for (const nk in normMap) {
+      if (!usedNormKeys.has(nk)) {
+        const { val } = normMap[nk]
+        if (PHONE_RE.test(val) && val.replace(/[\s\-\(\)\.]/g,'').length >= 6) {
+          phone = val
+          usedNormKeys.add(nk)
+          break
+        }
+      }
+    }
   }
 
-  // 2. Telefon (phone)
-  const phone = String(norm.telefon || norm.phone || norm.tel || norm.mobilni || norm.kontakt || '').trim()
+  // ── 3. Email ──────────────────────────────────────────────────────────────
+  let email = find([
+    'email','emailadresa','mail','emailaddress','eposta','imejl','eadresa'
+  ])
+  if (!email) {
+    for (const nk in normMap) {
+      if (!usedNormKeys.has(nk)) {
+        const { val } = normMap[nk]
+        if (EMAIL_RE.test(val)) { email = val; usedNormKeys.add(nk); break }
+      }
+    }
+  }
 
-  // 3. Email
-  const email = norm.email || norm.emailadresa || norm.mail || norm.emailaddress || '';
+  // ── 4. Ime roditelja ──────────────────────────────────────────────────────
+  const parentName = find([
+    'imeroditelja','parentname','roditelj','parent','majka','otac',
+    'staratelj','guardian','zakonski','zakonskizastupnik'
+  ])
 
-  // 4. Ime roditelja (parent_name)
-  const parentName = norm.imeroditelja || norm.parentname || norm.roditelj || norm.parent || norm.majka || norm.otac || '';
+  // ── 5. Medicinska upozorenja / Alergije ───────────────────────────────────
+  const medicalAlerts = find([
+    'alergije','alergija','medicalalerts','upozorenje','upozorenja',
+    'medical','zdravlje','oboljenje','dijagnoza','kontraindikacije',
+    'hronicnabolest','bolest','anamneza'
+  ])
 
-  // 5. Medicinska upozorenja / Alergije (medical_alerts)
-  const medicalAlerts = norm.alergije || norm.alergija || norm.medicalalerts || norm.upozorenje || norm.upozorenja || '';
-
-  // 6. Kategorija (category)
+  // ── 6. Kategorija ─────────────────────────────────────────────────────────
   let category = 'regular'
-  const rawCat = String(norm.kategorija || norm.category || '').toLowerCase().trim()
-  if (rawCat.includes('implant')) {
-    category = 'implant'
-  } else if (rawCat.includes('protez') || rawCat.includes('protet')) {
-    category = 'proteza'
+  const rawCat = find([
+    'kategorija','category','tip','type','vrsta','grupa','group','tipusluge','tipslucaja'
+  ])
+  if (rawCat) {
+    const rc = rawCat.toLowerCase()
+    if (rc.includes('implant')) category = 'implant'
+    else if (rc.includes('protez') || rc.includes('protet')) category = 'proteza'
   }
 
-  // 7. Extract appointment date & doctor name
-  const rawDateVal = norm.termin || norm.datum || norm.sledećitermin || norm.sledecitermin || norm.sledećipregled || norm.sledecipregled || norm.pregled || norm.vreme || norm.datumvreme || norm.datumivreme || norm.sledećidolazak || norm.sledecidolazak || '';
-  const appointmentDate = parseImportedDate(rawDateVal);
+  // ── 7. Termin / Sledeći pregled i Izabrani doktor ─────────────────────────
+  const rawDateVal = find([
+    'sledecitermin', 'sledećitermin', 'sledećipregled', 'sledecipregled', 'termin', 'datum', 'pregled', 'vreme', 
+    'datumtermina', 'datumvreme', 'datumivreme', 'sledećidolazak', 'sledecidolazak',
+    'nextvisit', 'nextappointment', 'sledeciposeta', 'narednitermin', 'zakazano', 'sledecaposeta'
+  ])
+  const appointmentDate = parseImportedDate(rawDateVal)
 
-  const rawDoctorVal = norm.izabranidoktor || norm.doktor || norm.lekar || norm.ordinirajućilekar || norm.ordinirajucilekar || '';
-  const mappedDoctorName = mapDoctorName(rawDoctorVal);
+  const rawDoctorVal = find([
+    'izabranidoktor', 'doktor', 'doctor', 'lekar', 'dentist', 'stomatolog',
+    'ordinirajucilekar', 'ordinirajućilekar', 'nadlezanlekar', 'nadležni'
+  ])
+  const mappedDoctorName = mapDoctorName(rawDoctorVal)
 
-  // 8. Napomene / Ostala polja -> notes
+  // ── 8. Napomene i specijalna polja → notes ────────────────────────────────
   const notesParts: string[] = []
-  
-  const napomena = norm.napomena || norm.notes || norm.note || norm.komentar || '';
-  if (napomena) notesParts.push(String(napomena))
 
-  const datumRodjenja = norm.datumrođenja || norm.datumrodenja || norm.datumrodjenja || norm.rodjen || norm.rođen || norm.dob || '';
+  const napomena = find([
+    'napomena','notes','note','komentar','beleska','beleška','komentari',
+    'opis','description','info','informacija','dodatnoinfo','dodatnapomena'
+  ])
+  if (napomena) notesParts.push(napomena)
+
+  const datumRodjenja = find([
+    'datumrodenja','datumrodjenja','datumrođenja','rodjen','rođen','dob',
+    'godinaRodjenja','godiste','birthday','birthdate','dateofbirth','datum'
+  ])
   if (datumRodjenja) notesParts.push(`Datum rođenja: ${datumRodjenja}`)
 
-  const prethodneIntervencije = norm.prethodneintervencije || norm.intervencije || '';
-  if (prethodneIntervencije) notesParts.push(`Prethodne intervencije: ${prethodneIntervencije}`)
+  const intervencije = find(['prethodneintervencije','intervencije','anamneza','istorijabolesti'])
+  if (intervencije) notesParts.push(`Prethodne intervencije: ${intervencije}`)
 
-  if (rawDoctorVal) notesParts.push(`Uvezen doktor: ${rawDoctorVal}`)
-  if (rawDateVal) notesParts.push(`Uvezen termin: ${rawDateVal}`)
+  if (rawDoctorVal) notesParts.push(`Izabrani doktor: ${rawDoctorVal}`)
+  if (rawDateVal) notesParts.push(`Sledeći pregled: ${rawDateVal}`)
 
-  const ukupanDug = norm.ukupandug || norm.dug || norm.dugrsd || norm.ukupandugrsd || '';
-  if (ukupanDug) notesParts.push(`Dug iz starog sistema: ${ukupanDug} RSD`)
+  const dug = find([
+    'ukupandug','dug','dugrsd','ukupandugrsd','dugovanje','iznos',
+    'duzanplatiti','balans','balance','debt','amount','potraživanje',
+    'potrazivanje','stanjekonta','stanje'
+  ])
+  if (dug) notesParts.push(`Dug iz starog sistema: ${dug} RSD`)
 
-  const pacijentId = norm.pacijentid || norm.id || '';
+  const pacijentId = find([
+    'pacijentid','id','sifra','šifra','broj','rbr','rednibr',
+    'rednibrojpacijenta','matbr','maticnibroj','jmbg'
+  ])
   if (pacijentId) notesParts.push(`ID iz starog sistema: ${pacijentId}`)
 
-  // 9. DYNAMIC EXTRA COLUMNS: capture any unhandled keys from the excel row and append them to notes
+  // ── 9. Sve preostale neprepoznate kolone → notes ──────────────────────────
   const extraFields: string[] = []
   for (const key in row) {
-    const normKey = key.toLowerCase().trim().replace(/[\s\._-]/g, '')
-    if (!handledKeys.has(normKey)) {
-      const val = row[key]
-      if (val !== null && val !== undefined && String(val).trim() !== '') {
-        extraFields.push(`${key}: ${String(val).trim()}`)
-      }
+    const nk = key.toLowerCase().trim().replace(/[\s\.\-_\/\(\)\[\]#*:;,]+/g, '')
+    if (!usedNormKeys.has(nk)) {
+      const val = String(row[key] ?? '').trim()
+      if (val) extraFields.push(`${key}: ${val}`)
     }
   }
   if (extraFields.length > 0) {
@@ -232,9 +315,9 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient {
   const notes = notesParts.join(' | ')
 
   return {
-    first_name: String(firstName).trim(),
-    last_name: lastName ? String(lastName).trim() : null,
-    phone: phone,
+    first_name: firstName.trim(),
+    last_name: null,
+    phone: phone || '/',
     email: email ? String(email).trim() : null,
     parent_name: parentName ? String(parentName).trim() : null,
     medical_alerts: medicalAlerts ? String(medicalAlerts).trim() : null,
@@ -306,7 +389,13 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
     onDrop,
     accept: {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'text/csv': ['.csv'],
+      'application/vnd.ms-excel': ['.xls'],
+      // Excel sa makroima (xlsm) i binarni format (xlsb)
+      'application/vnd.ms-excel.sheet.macroenabled.12': ['.xlsm'],
+      'application/vnd.ms-excel.sheet.binary.macroenabled.12': ['.xlsb'],
+      'text/csv': ['.csv', '.cs'],
+      'text/plain': ['.txt', '.cs', '.exceljs'],
+      'application/octet-stream': ['.exceljs', '.xlsb', '.xlsm', '.ods'],
     },
     maxFiles: 1,
   })
@@ -337,7 +426,7 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
 
   const validRowsCount = dataPreview.length
   const headers = dataPreview.length > 0 
-    ? Object.keys(dataPreview[0]).filter(key => key !== 'isInvalid') 
+    ? Object.keys(dataPreview[0]).filter(key => key !== 'isInvalid' && key !== 'last_name') 
     : []
 
   return (
@@ -349,7 +438,7 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
             Import Pacijenata
           </h2>
           <p className="text-slate-500 text-sm mt-1">
-            Ubacite .xlsx ili .csv fajl sa pacijentima
+            Ubacite .xlsx, .xls, .xlsm, .xlsb, .ods, .csv, .cs ili .exceljs fajl sa pacijentima
           </p>
         </div>
         <button
@@ -388,7 +477,7 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
                 Prevucite fajl ovde ili kliknite da odaberete
               </p>
               <p className="text-slate-500 text-sm mt-2 text-center">
-                Podržani formati: Excel (.xlsx), CSV (.csv)
+                Podržani formati: Excel (.xlsx, .xls, .xlsm) i CSV (.csv, .cs) — sve verzije od Excel 95 do danas
               </p>
             </div>
           ) : (
