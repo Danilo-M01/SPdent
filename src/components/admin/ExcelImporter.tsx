@@ -403,13 +403,17 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
     onDrop,
     accept: {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.ms-excel': ['.xls'],
+      'application/vnd.ms-excel': ['.xls', '.xlm', '.xlt'],
       // Excel sa makroima (xlsm) i binarni format (xlsb)
       'application/vnd.ms-excel.sheet.macroenabled.12': ['.xlsm'],
       'application/vnd.ms-excel.sheet.binary.macroenabled.12': ['.xlsb'],
+      'application/vnd.oasis.opendocument.spreadsheet': ['.ods', '.fods'],
       'text/csv': ['.csv', '.cs'],
-      'text/plain': ['.txt', '.cs', '.exceljs'],
-      'application/octet-stream': ['.exceljs', '.xlsb', '.xlsm', '.ods'],
+      'text/plain': ['.txt', '.cs', '.exceljs', '.tsv', '.tab', '.dif', '.slk'],
+      'text/html': ['.html', '.htm'],
+      'application/xml': ['.xml'],
+      'text/xml': ['.xml'],
+      'application/octet-stream': ['.exceljs', '.xlsb', '.xlsm', '.ods', '.fods', '.dbf'],
     },
     maxFiles: 1,
   })
