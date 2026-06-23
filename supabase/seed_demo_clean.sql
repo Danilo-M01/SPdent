@@ -6,7 +6,7 @@
 
 -- Add yourself as an admin user (replace 'TVOJ-UUID-OVDE' with your real user UID)
 INSERT INTO public.admin_users (user_id, name, role) VALUES
-  ('0a336e29-a67a-4584-a8af-8d9c4938f726', 'Admin Demo', 'doctor')
+  ('98bd40ba-900f-41f4-99fe-7c70ec2690ed', 'Admin Demo', 'doctor')
 ON CONFLICT (user_id) DO NOTHING;
 
 -- -----------------------------------------------------------------------------
