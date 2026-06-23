@@ -295,6 +295,15 @@ export default function TerminiClient({
 
   // Patient Filter Search Query (Main Calendar View Filter)
   const [patientFilterQuery, setPatientFilterQuery] = useState('')
+  const [localFilterQuery, setLocalFilterQuery] = useState('')
+
+  // Debounce the calendar patient filter input by 150ms
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setPatientFilterQuery(localFilterQuery)
+    }, 150)
+    return () => clearTimeout(handler)
+  }, [localFilterQuery])
 
   // Match index for Ctrl+F style appointment navigation
   const [currentMatchIndex, setCurrentMatchIndex] = useState<number>(-1)
@@ -376,16 +385,26 @@ export default function TerminiClient({
     return list
   }, [appointments, doctorFilter, patientFilterQuery])
 
-  // Autocomplete patient search list
+  // Autocomplete patient search list - optimized with fast exit
   const filteredPatients = useMemo(() => {
     if (!patientSearch.trim()) return []
-    const q = patientSearch.toLowerCase()
-    return patientsList.filter(
-      (p) => 
-        (p.first_name && p.first_name.toLowerCase().includes(q)) || 
-        (p.last_name && p.last_name.toLowerCase().includes(q)) ||
-        (p.phone && p.phone.includes(q))
-    ).slice(0, 5) // limit to top 5 results
+    const q = patientSearch.toLowerCase().trim()
+    const results: Patient[] = []
+    
+    for (let i = 0; i < patientsList.length; i++) {
+      const p = patientsList[i]
+      const fNameMatch = p.first_name && p.first_name.toLowerCase().includes(q)
+      const lNameMatch = p.last_name && p.last_name.toLowerCase().includes(q)
+      const phoneMatch = p.phone && p.phone.includes(q)
+      
+      if (fNameMatch || lNameMatch || phoneMatch) {
+        results.push(p)
+        if (results.length >= 5) {
+          break
+        }
+      }
+    }
+    return results
   }, [patientsList, patientSearch])
 
   // Dynamic time slots based on selected day's clinic working hours
@@ -885,13 +904,13 @@ export default function TerminiClient({
               <input
                 id="appt-patient-filter-input"
                 type="text"
-                value={patientFilterQuery}
-                onChange={(e) => setPatientFilterQuery(e.target.value)}
+                value={localFilterQuery}
+                onChange={(e) => setLocalFilterQuery(e.target.value)}
                 placeholder="Unesite ime i prezime pacijenta..."
                 className="w-full bg-slate-50 border border-slate-200 hover:border-slate-300 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl pl-10 pr-28 py-2.5 text-sm text-slate-900 placeholder-slate-400 outline-none transition-all duration-200"
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 bg-white pr-1 pl-1.5 py-1 rounded-lg border border-slate-200 shadow-inner">
-                {patientFilterQuery && (
+                {localFilterQuery && (
                   <>
                     <span className="text-[10px] font-black text-slate-500 bg-slate-100 px-1 py-0.5 rounded select-none min-w-[32px] text-center border border-slate-200">
                       {matchingAppointments.length > 0 
@@ -917,9 +936,12 @@ export default function TerminiClient({
                     <span className="w-px h-3 bg-slate-200 mx-0.5" />
                   </>
                 )}
-                {patientFilterQuery && (
+                {localFilterQuery && (
                   <button
-                    onClick={() => setPatientFilterQuery('')}
+                    onClick={() => {
+                      setLocalFilterQuery('')
+                      setPatientFilterQuery('')
+                    }}
                     className="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
                     title="Očisti pretragu"
                   >

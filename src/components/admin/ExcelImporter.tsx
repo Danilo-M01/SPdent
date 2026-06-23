@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useDropzone } from 'react-dropzone'
 import * as XLSX from 'xlsx'
-import { motion } from 'framer-motion'
-import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, Loader2 } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, Loader2, BarChart3 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { bulkImportPatients, type ImportPatient } from '@/app/admin/actions'
+import type { ImportPatient } from '@/app/admin/actions'
 
 interface ExcelImporterProps {
   onClose: () => void
@@ -60,7 +60,7 @@ function parseImportedDate(val: unknown): string | null {
   if (!str) return null
 
   // Serbian format: "15.06.2026. 10:00" or "15.06.2026. u 10:00" or "15.06.2026 10:00" or "15.6.2026. 10:00"
-  const serbianMatch = str.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\.?(?:\s+(?:u\s+)?(\d{1,2})[:.](\d{2}))?/i)
+  const serbianMatch = str.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\.?(?:\s+(?:u\s+)?(\d{1,2})[:.](:\d{2}))?/i)
   if (serbianMatch) {
     const day = parseInt(serbianMatch[1], 10)
     const month = parseInt(serbianMatch[2], 10)
@@ -72,7 +72,7 @@ function parseImportedDate(val: unknown): string | null {
   }
 
   // Slash format: "15/06/2026 10:00" or "15/06/2026"
-  const slashMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2})[:.](\d{2}))?/)
+  const slashMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2})[:.](:\d{2}))?/)
   if (slashMatch) {
     const day = parseInt(slashMatch[1], 10)
     const month = parseInt(slashMatch[2], 10)
@@ -84,7 +84,7 @@ function parseImportedDate(val: unknown): string | null {
   }
 
   // ISO format: "2026-06-15 10:00" or "2026-06-15T10:00" or "2026-06-15"
-  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})(?:T|\s+)(\d{2})[:.](\d{2})/)
+  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})(?:T|\s+)(\d{2})[:.](:\d{2})/)
   if (isoMatch) {
     return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}T${isoMatch[4]}:${isoMatch[5]}`
   }
@@ -124,7 +124,7 @@ function mapDoctorName(raw: unknown): string | null {
   return null
 }
 
-function mapImportedRow(row: Record<string, unknown>): ImportPatient {
+function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _generatedPhone?: string } {
   // ── Regex patterns za prepoznavanje podataka ───────────────────────────────
   const PHONE_RE = /^\+?[\d\s\-\(\)\.]{6,20}$/
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -314,6 +314,13 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient {
 
   const notes = notesParts.join(' | ')
 
+  // Generate a unique no-phone ID if phone is missing
+  let _generatedPhone: string | undefined
+  if (!phone || phone === '/' || phone.startsWith('/')) {
+    _generatedPhone = `/-no-phone-${Math.random().toString(36).substring(2, 10)}-${Date.now().toString(36)}`
+    phone = '/'
+  }
+
   return {
     first_name: firstName.trim(),
     last_name: null,
@@ -325,15 +332,37 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient {
     category: category,
     appointment_date: appointmentDate,
     doctor_name: mappedDoctorName,
+    _generatedPhone,
   }
+}
+
+// ---------------------------------------------------------------------------
+// CHUNK SIZE — how many patients per API call
+// ---------------------------------------------------------------------------
+const CHUNK_SIZE = 300
+
+// ---------------------------------------------------------------------------
+// Progress state interface
+// ---------------------------------------------------------------------------
+interface ImportProgress {
+  phase: 'parsing' | 'uploading' | 'done' | 'error'
+  totalRows: number
+  processedRows: number
+  insertedRows: number
+  currentChunk: number
+  totalChunks: number
+  errors: string[]
+  startTime: number
 }
 
 export default function ExcelImporter({ onClose }: ExcelImporterProps) {
   const router = useRouter()
-  const [dataPreview, setDataPreview] = useState<Array<ImportPatient & { isInvalid?: boolean }>>([])
+  const [dataPreview, setDataPreview] = useState<Array<ImportPatient & { isInvalid?: boolean; _generatedPhone?: string }>>([])
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [progress, setProgress] = useState<ImportProgress | null>(null)
+  const abortRef = useRef(false)
 
   const onDrop = useCallback((acceptedFiles: File[], fileRejections: any[]) => {
     setError(null)
@@ -352,6 +381,17 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
 
     const file = acceptedFiles[0]
     if (!file) return
+
+    setProgress({
+      phase: 'parsing',
+      totalRows: 0,
+      processedRows: 0,
+      insertedRows: 0,
+      currentChunk: 0,
+      totalChunks: 0,
+      errors: [],
+      startTime: Date.now(),
+    })
 
     const reader = new FileReader()
     reader.onload = (e) => {
@@ -382,18 +422,21 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
             }
             return { ...mapped, isInvalid: false }
           })
-          .filter(row => row !== null)) as Array<ImportPatient & { isInvalid: boolean }>
+          .filter(row => row !== null)) as Array<ImportPatient & { isInvalid: boolean; _generatedPhone?: string }>
         
         if (cleanedData.length === 0) {
           setError('Fajl je prazan ili je pogrešnog formata.')
+          setProgress(null)
           return
         }
         
         setDataPreview(cleanedData)
+        setProgress(null)
       } catch (err) {
         console.error(err)
         const errMsg = err instanceof Error ? err.message : String(err)
         setError(`Greška pri čitanju fajla: ${errMsg}. Proverite da li je validan Excel ili CSV.`)
+        setProgress(null)
       }
     }
     reader.readAsArrayBuffer(file)
@@ -421,31 +464,101 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
   const handleUpload = async () => {
     setIsUploading(true)
     setError(null)
+    abortRef.current = false
 
-    // Strip out the isInvalid flag before sending to the server action
-    const payload = dataPreview.map((row) => {
-      const copy = { ...row }
-      delete copy.isInvalid
-      return copy
+    // Prepare all rows — strip isInvalid flag
+    const allRows = dataPreview.map((row) => {
+      const { isInvalid, ...rest } = row
+      return rest
     })
-    const result = await bulkImportPatients(payload)
 
-    if (result.success) {
+    const totalChunks = Math.ceil(allRows.length / CHUNK_SIZE)
+    
+    const progressState: ImportProgress = {
+      phase: 'uploading',
+      totalRows: allRows.length,
+      processedRows: 0,
+      insertedRows: 0,
+      currentChunk: 0,
+      totalChunks,
+      errors: [],
+      startTime: Date.now(),
+    }
+    setProgress({ ...progressState })
+
+    // Send chunks sequentially
+    for (let i = 0; i < allRows.length; i += CHUNK_SIZE) {
+      if (abortRef.current) {
+        progressState.errors.push('Uvoz je otkazan od strane korisnika.')
+        break
+      }
+
+      const chunk = allRows.slice(i, i + CHUNK_SIZE)
+      progressState.currentChunk = Math.floor(i / CHUNK_SIZE) + 1
+      setProgress({ ...progressState })
+
+      try {
+        const res = await fetch('/api/bulk-import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ patients: chunk }),
+        })
+
+        const result = await res.json()
+
+        progressState.processedRows += chunk.length
+        if (result.inserted) {
+          progressState.insertedRows += result.inserted
+        }
+        if (result.errors && result.errors.length > 0) {
+          progressState.errors.push(...result.errors.map((e: string) => `Chunk ${progressState.currentChunk}: ${e}`))
+        }
+        if (!result.success && result.error) {
+          progressState.errors.push(`Chunk ${progressState.currentChunk}: ${result.error}`)
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        progressState.errors.push(`Chunk ${progressState.currentChunk}: Mrežna greška — ${msg}`)
+      }
+
+      setProgress({ ...progressState })
+    }
+
+    // Done!
+    progressState.phase = progressState.errors.length > 0 ? 'error' : 'done'
+    setProgress({ ...progressState })
+
+    if (progressState.errors.length === 0) {
       setSuccess(true)
       router.refresh()
-      setTimeout(() => {
-        onClose()
-      }, 2000)
-    } else {
-      setError(result.error || 'Došlo je do greške.')
-      setIsUploading(false)
+    } else if (progressState.insertedRows > 0) {
+      // Partial success — still refresh
+      router.refresh()
     }
+    
+    setIsUploading(false)
+  }
+
+  const handleCancel = () => {
+    abortRef.current = true
   }
 
   const validRowsCount = dataPreview.length
   const headers = dataPreview.length > 0 
-    ? Object.keys(dataPreview[0]).filter(key => key !== 'isInvalid' && key !== 'last_name') 
+    ? Object.keys(dataPreview[0]).filter(key => key !== 'isInvalid' && key !== 'last_name' && key !== '_generatedPhone') 
     : []
+
+  // Calculate time estimates
+  const getTimeEstimate = () => {
+    if (!progress || progress.phase !== 'uploading' || progress.processedRows === 0) return ''
+    const elapsed = (Date.now() - progress.startTime) / 1000
+    const rate = progress.processedRows / elapsed
+    const remaining = (progress.totalRows - progress.processedRows) / rate
+    if (remaining < 60) return `~${Math.ceil(remaining)} sek`
+    return `~${Math.ceil(remaining / 60)} min`
+  }
+
+  const progressPercent = progress ? Math.round((progress.processedRows / Math.max(progress.totalRows, 1)) * 100) : 0
 
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
@@ -461,13 +574,94 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
         </div>
         <button
           onClick={onClose}
-          className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"
+          disabled={isUploading}
+          className="w-8 h-8 flex items-center justify-center rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors disabled:opacity-50"
         >
           <X size={18} />
         </button>
       </div>
 
-      {success ? (
+      {/* ── PROGRESS VIEW ── */}
+      {progress && progress.phase === 'uploading' && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col gap-4 py-6"
+        >
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-sky-50 border border-sky-100 rounded-xl flex items-center justify-center">
+              <Loader2 className="w-5 h-5 text-[#0284C7] animate-spin" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">Uvoz u toku...</h3>
+              <p className="text-sm text-slate-500">
+                Ne zatvarajte ovu stranicu dok se uvoz ne završi
+              </p>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden border border-slate-200">
+            <motion.div
+              className="h-full rounded-full bg-gradient-to-r from-[#0284C7] to-sky-400"
+              initial={{ width: 0 }}
+              animate={{ width: `${progressPercent}%` }}
+              transition={{ duration: 0.3 }}
+            />
+          </div>
+
+          {/* Stats row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+              <div className="text-xs text-slate-500 mb-1">Progres</div>
+              <div className="text-lg font-bold text-slate-900">{progressPercent}%</div>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+              <div className="text-xs text-slate-500 mb-1">Obrađeno</div>
+              <div className="text-lg font-bold text-slate-900">
+                {progress.processedRows.toLocaleString()} / {progress.totalRows.toLocaleString()}
+              </div>
+            </div>
+            <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-100">
+              <div className="text-xs text-emerald-600 mb-1">Ubačeno</div>
+              <div className="text-lg font-bold text-emerald-700">{progress.insertedRows.toLocaleString()}</div>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+              <div className="text-xs text-slate-500 mb-1">Preostalo</div>
+              <div className="text-lg font-bold text-slate-900">{getTimeEstimate() || '...'}</div>
+            </div>
+          </div>
+
+          {/* Chunk info */}
+          <div className="text-xs text-slate-500 text-center">
+            Chunk {progress.currentChunk} od {progress.totalChunks} • 
+            {' '}{CHUNK_SIZE} pacijenata po pošiljci
+          </div>
+
+          {/* Cancel button */}
+          <div className="flex justify-center">
+            <button
+              onClick={handleCancel}
+              className="px-5 py-2 rounded-xl text-sm font-semibold text-red-600 hover:bg-red-50 border border-red-200 transition-colors"
+            >
+              Otkaži uvoz
+            </button>
+          </div>
+
+          {/* Errors during upload */}
+          {progress.errors.length > 0 && (
+            <div className="mt-2 bg-amber-50 border border-amber-200 rounded-xl p-3 max-h-32 overflow-auto">
+              <p className="text-xs font-semibold text-amber-700 mb-1">Upozorenja ({progress.errors.length}):</p>
+              {progress.errors.map((e, i) => (
+                <p key={i} className="text-xs text-amber-600">{e}</p>
+              ))}
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {/* ── DONE VIEW ── */}
+      {(success || (progress && progress.phase === 'done')) && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -477,9 +671,91 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
             <CheckCircle2 size={32} />
           </div>
           <h3 className="text-xl font-bold text-slate-900 mb-2">Uspešno uvezeno!</h3>
-          <p className="text-slate-500">Pacijenti su dodati u bazu.</p>
+          <p className="text-slate-500 mb-4">
+            {progress
+              ? `${progress.insertedRows.toLocaleString()} pacijenata dodato u bazu.`
+              : 'Pacijenti su dodati u bazu.'}
+          </p>
+          {progress && (
+            <div className="grid grid-cols-3 gap-4 w-full max-w-sm">
+              <div className="bg-emerald-50 rounded-xl p-3 text-center border border-emerald-100">
+                <div className="text-2xl font-bold text-emerald-700">{progress.insertedRows.toLocaleString()}</div>
+                <div className="text-xs text-emerald-600">Ubačeno</div>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3 text-center border border-slate-100">
+                <div className="text-2xl font-bold text-slate-700">{progress.totalRows.toLocaleString()}</div>
+                <div className="text-xs text-slate-500">Ukupno</div>
+              </div>
+              <div className="bg-slate-50 rounded-xl p-3 text-center border border-slate-100">
+                <div className="text-2xl font-bold text-slate-700">
+                  {Math.round((Date.now() - progress.startTime) / 1000)}s
+                </div>
+                <div className="text-xs text-slate-500">Trajanje</div>
+              </div>
+            </div>
+          )}
+          <button
+            onClick={onClose}
+            className="mt-6 px-6 py-2.5 rounded-xl text-sm font-semibold bg-[#0284C7] hover:bg-sky-600 text-white transition-colors shadow-sm"
+          >
+            Zatvori
+          </button>
         </motion.div>
-      ) : (
+      )}
+
+      {/* ── PARTIAL SUCCESS / ERROR DONE VIEW ── */}
+      {progress && progress.phase === 'error' && !success && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex flex-col items-center justify-center py-8"
+        >
+          <div className="w-16 h-16 bg-amber-50 border border-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-4">
+            <AlertCircle size={32} />
+          </div>
+          <h3 className="text-xl font-bold text-slate-900 mb-2">
+            {progress.insertedRows > 0 ? 'Delimično uvezeno' : 'Greška pri uvozu'}
+          </h3>
+          <p className="text-slate-500 mb-4">
+            {progress.insertedRows > 0
+              ? `${progress.insertedRows.toLocaleString()} od ${progress.totalRows.toLocaleString()} pacijenata je uspešno ubačeno.`
+              : 'Nijedan pacijent nije uspešno ubačen.'}
+          </p>
+
+          <div className="grid grid-cols-3 gap-4 w-full max-w-sm mb-4">
+            <div className="bg-emerald-50 rounded-xl p-3 text-center border border-emerald-100">
+              <div className="text-2xl font-bold text-emerald-700">{progress.insertedRows.toLocaleString()}</div>
+              <div className="text-xs text-emerald-600">Ubačeno</div>
+            </div>
+            <div className="bg-red-50 rounded-xl p-3 text-center border border-red-100">
+              <div className="text-2xl font-bold text-red-700">{progress.errors.length}</div>
+              <div className="text-xs text-red-500">Greške</div>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-3 text-center border border-slate-100">
+              <div className="text-2xl font-bold text-slate-700">{progress.totalRows.toLocaleString()}</div>
+              <div className="text-xs text-slate-500">Ukupno</div>
+            </div>
+          </div>
+
+          {/* Error details */}
+          <div className="w-full bg-red-50 border border-red-200 rounded-xl p-3 max-h-40 overflow-auto mb-4">
+            <p className="text-xs font-semibold text-red-700 mb-1">Greške:</p>
+            {progress.errors.map((e, i) => (
+              <p key={i} className="text-xs text-red-600 mb-0.5">{e}</p>
+            ))}
+          </div>
+
+          <button
+            onClick={onClose}
+            className="px-6 py-2.5 rounded-xl text-sm font-semibold bg-[#0284C7] hover:bg-sky-600 text-white transition-colors shadow-sm"
+          >
+            Zatvori
+          </button>
+        </motion.div>
+      )}
+
+      {/* ── FILE SELECT + PREVIEW ── */}
+      {!success && (!progress || progress.phase === 'parsing') && (
         <>
           {dataPreview.length === 0 ? (
             <div
@@ -495,16 +771,28 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
                 Prevucite fajl ovde ili kliknite da odaberete
               </p>
               <p className="text-slate-500 text-sm mt-2 text-center">
-                Podržani formati: Excel (.xlsx, .xls, .xlsm) i CSV (.csv, .cs)
+                Podržani formati: Excel (.xlsx, .xls, .xlsm), ODS (.ods) i CSV (.csv)
               </p>
+              {progress?.phase === 'parsing' && (
+                <div className="mt-4 flex items-center gap-2 text-[#0284C7]">
+                  <Loader2 size={16} className="animate-spin" />
+                  <span className="text-sm font-medium">Čitam fajl...</span>
+                </div>
+              )}
             </div>
           ) : (
             <div className="flex-1 overflow-hidden flex flex-col min-h-0">
               <div className="flex items-center justify-between mb-4 shrink-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-[#0284C7] bg-[#E0F2FE] border border-sky-100 px-3 py-1 rounded-full">
-                    Pronađeno {dataPreview.length} redova
+                    Pronađeno {dataPreview.length.toLocaleString()} redova
                   </span>
+                  {dataPreview.length > 1000 && (
+                    <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-100 px-3 py-1 rounded-full flex items-center gap-1">
+                      <BarChart3 size={12} />
+                      Veliki fajl — uvoz u {Math.ceil(dataPreview.length / CHUNK_SIZE)} chunk-ova
+                    </span>
+                  )}
                 </div>
                 <button
                   onClick={() => setDataPreview([])}
@@ -529,7 +817,7 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {dataPreview.slice(0, 50).map((row, i) => (
+                    {dataPreview.slice(0, 100).map((row, i) => (
                       <tr 
                         key={i} 
                         className="hover:bg-slate-100/50"
@@ -566,6 +854,13 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
                         })}
                       </tr>
                     ))}
+                    {dataPreview.length > 100 && (
+                      <tr>
+                        <td colSpan={headers.length} className="px-4 py-4 text-center text-slate-400 text-sm italic bg-slate-50">
+                          ... i još {(dataPreview.length - 100).toLocaleString()} redova (prikazan pregled prvih 100)
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -591,7 +886,7 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
                   className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-[#0284C7] hover:bg-sky-600 text-white transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm"
                 >
                   {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                  Započni uvoz ({validRowsCount})
+                  Započni uvoz ({validRowsCount.toLocaleString()})
                 </button>
               </div>
             </div>

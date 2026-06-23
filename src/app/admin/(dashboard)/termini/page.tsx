@@ -43,15 +43,12 @@ export default async function TerminiPage() {
   const startRange = new Date()
   startRange.setDate(startRange.getDate() - 90)
 
-  const rawAppointments: any[] = []
-  let apptsOffset = 0
-  const PAGE_LIMIT = 1000
-  let apptsHasMore = true
-
-  while (apptsHasMore) {
-    const { data, error } = await supabase
-      .from('appointments')
-      .select(`
+  // ── Run parallel queries for appointments and patients in PARALLEL ──────
+  const [rawAppointments, rawPatients] = await Promise.all([
+    fetchAllParallel<any>(
+      supabase,
+      'appointments',
+      `
         id,
         appointment_datetime,
         doctor_name,
@@ -64,26 +61,16 @@ export default async function TerminiPage() {
           phone,
           category
         )
-      `)
-      .gte('appointment_datetime', startRange.toISOString())
-      .order('appointment_datetime', { ascending: true })
-      .range(apptsOffset, apptsOffset + PAGE_LIMIT - 1)
-
-    if (error) {
-      console.error('[TerminiPage] fetch error:', error.message)
-      break
-    }
-
-    if (data && data.length > 0) {
-      rawAppointments.push(...data)
-      apptsOffset += PAGE_LIMIT
-      if (data.length < PAGE_LIMIT) {
-        apptsHasMore = false
-      }
-    } else {
-      apptsHasMore = false
-    }
-  }
+      `,
+      (q) => q.gte('appointment_datetime', startRange.toISOString()).order('appointment_datetime', { ascending: true })
+    ),
+    fetchAllParallel<any>(
+      supabase,
+      'patients',
+      'id, first_name, last_name, phone, category',
+      (q) => q.order('first_name', { ascending: true })
+    ),
+  ])
 
   // Normalize: Supabase join can return null, an array, or an object for `patient`.
   // Ensure every appointment has a valid `patient` object to prevent client-side crashes.
@@ -114,39 +101,67 @@ export default async function TerminiPage() {
     }
   })
 
-  // Fetch all patients for the quick booking dropdown list (autocomplete)
-  const patients: Patient[] = []
-  let patientsOffset = 0
-  let patientsHasMore = true
-
-  while (patientsHasMore) {
-    const { data, error: patientsError } = await supabase
-      .from('patients')
-      .select('id, first_name, last_name, phone, category')
-      .order('first_name', { ascending: true })
-      .range(patientsOffset, patientsOffset + PAGE_LIMIT - 1)
-
-    if (patientsError) {
-      console.error('[TerminiPage] patients fetch error:', patientsError.message)
-      break
-    }
-
-    if (data && data.length > 0) {
-      patients.push(...(data as unknown as Patient[]))
-      patientsOffset += PAGE_LIMIT
-      if (data.length < PAGE_LIMIT) {
-        patientsHasMore = false
-      }
-    } else {
-      patientsHasMore = false
-    }
-  }
-
   return (
     <TerminiClient
       initialAppointments={appointments}
-      patients={(patients as unknown as Patient[]) || []}
+      patients={(rawPatients as unknown as Patient[]) || []}
     />
   )
 }
+
+const PAGE_LIMIT = 1000
+
+/** Parallel paginated fetch — counts total rows first, then queries pages in parallel. */
+async function fetchAllParallel<T>(
+  supabase: any,
+  tableName: string,
+  selectColumns: string,
+  optionsFn?: (query: any) => any
+): Promise<T[]> {
+  let countQuery = supabase
+    .from(tableName)
+    .select('id', { count: 'exact', head: true })
+
+  if (optionsFn) {
+    countQuery = optionsFn(countQuery)
+  }
+
+  const { count, error: countError } = await countQuery
+  if (countError) {
+    console.error(`[fetchAllParallel] Count error for ${tableName}:`, countError.message)
+    return []
+  }
+
+  const total = count ?? 0
+  if (total === 0) return []
+
+  const promises: Promise<{ data: T[] | null; error: any }>[] = []
+
+  for (let offset = 0; offset < total; offset += PAGE_LIMIT) {
+    let query = supabase
+      .from(tableName)
+      .select(selectColumns)
+      .range(offset, offset + PAGE_LIMIT - 1)
+
+    if (optionsFn) {
+      query = optionsFn(query)
+    }
+
+    promises.push(query)
+  }
+
+  const results = await Promise.all(promises)
+  const allData: T[] = []
+  for (const res of results) {
+    if (res.error) {
+      console.error(`[fetchAllParallel] Fetch error for ${tableName}:`, res.error.message)
+      continue
+    }
+    if (res.data) {
+      allData.push(...res.data)
+    }
+  }
+  return allData
+}
+
 
