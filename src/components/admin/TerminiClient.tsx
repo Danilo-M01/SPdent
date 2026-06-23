@@ -1586,12 +1586,27 @@ export default function TerminiClient({
               className="fixed inset-0 z-50 flex items-center justify-center p-4"
             >
               <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-3xl p-6 shadow-2xl shadow-black/80 space-y-4">
-                <div className="flex justify-between items-center pb-3 border-b border-white/5">
+                <div className="flex justify-between items-start pb-3 border-b border-white/5">
                   <div>
                     <h3 className="text-white font-extrabold text-lg">Upravljanje terminom</h3>
                     <p className="text-slate-400 text-xs mt-1">
                       Pacijent: <span className="text-white font-bold text-sm">{editingAppt.patient?.first_name} {editingAppt.patient?.last_name || ''}</span>
                     </p>
+                    <div className="flex items-center gap-3 mt-1.5">
+                      <span className="flex items-center gap-1.5 text-slate-400 text-xs font-bold">
+                        <Phone size={12} className="text-slate-500" />
+                        <span className="text-slate-300 font-mono">
+                          {editingAppt.patient?.phone?.startsWith('/') ? 'Bez telefona' : editingAppt.patient?.phone || 'Bez telefona'}
+                        </span>
+                      </span>
+                      <span className={`flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                        editingAppt.reminder_sent
+                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      }`}>
+                        {editingAppt.reminder_sent ? '✓ SMS poslat' : '✗ SMS nije poslat'}
+                      </span>
+                    </div>
                   </div>
                   <button
                     onClick={() => setEditingAppt(null)}
