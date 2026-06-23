@@ -562,26 +562,34 @@ export async function bulkImportPatients(patients: ImportPatient[]): Promise<Act
     })
     const finalPatients = Array.from(dedupedMap.values())
 
-    // 2. Upsert patients and retrieve their DB ids
-    const { data: upsertedPatients, error } = await supabase
-      .from('patients')
-      .upsert(finalPatients, {
-        onConflict: 'phone',
-        ignoreDuplicates: false,
-      })
-      .select('id, phone')
+    // 2. Upsert patients in batches (Supabase/PostgREST has limits on single request size)
+    const BATCH_SIZE = 500
+    const allUpsertedPatients: { id: string; phone: string }[] = []
 
-    if (error) {
-      console.error('[bulkImportPatients] DB Error:', error.message)
-      return { success: false, error: `Greška pri uvozu pacijenata u bazu: ${error.message}` }
+    for (let i = 0; i < finalPatients.length; i += BATCH_SIZE) {
+      const batch = finalPatients.slice(i, i + BATCH_SIZE)
+      const { data: upsertedBatch, error } = await supabase
+        .from('patients')
+        .upsert(batch, {
+          onConflict: 'phone',
+          ignoreDuplicates: false,
+        })
+        .select('id, phone')
+
+      if (error) {
+        console.error(`[bulkImportPatients] DB Error on batch ${Math.floor(i / BATCH_SIZE) + 1}:`, error.message)
+        return { success: false, error: `Greška pri uvozu pacijenata u bazu (batch ${Math.floor(i / BATCH_SIZE) + 1}): ${error.message}` }
+      }
+
+      if (upsertedBatch) {
+        allUpsertedPatients.push(...upsertedBatch)
+      }
     }
 
     // Map upserted patients phone -> ID
     const phoneToIdMap = new Map<string, string>()
-    if (upsertedPatients) {
-      for (const p of upsertedPatients) {
-        phoneToIdMap.set(p.phone, p.id)
-      }
+    for (const p of allUpsertedPatients) {
+      phoneToIdMap.set(p.phone, p.id)
     }
 
     // 3. Process and bulk insert appointments if present
@@ -611,15 +619,20 @@ export async function bulkImportPatients(patients: ImportPatient[]): Promise<Act
     if (appointmentsToInsert.length > 0) {
       // Fetch existing appointments for relevant patients to avoid duplicates
       const patientIds = Array.from(new Set(appointmentsToInsert.map(a => a.patient_id)))
-      const { data: existingAppts } = await supabase
-        .from('appointments')
-        .select('patient_id, appointment_datetime')
-        .in('patient_id', patientIds)
-
+      
+      // Fetch existing appointments in batches too (Supabase .in() has a limit)
       const existingSet = new Set<string>()
-      if (existingAppts) {
-        for (const ea of existingAppts) {
-          existingSet.add(`${ea.patient_id}_${new Date(ea.appointment_datetime).toISOString()}`)
+      for (let i = 0; i < patientIds.length; i += BATCH_SIZE) {
+        const idBatch = patientIds.slice(i, i + BATCH_SIZE)
+        const { data: existingAppts } = await supabase
+          .from('appointments')
+          .select('patient_id, appointment_datetime')
+          .in('patient_id', idBatch)
+
+        if (existingAppts) {
+          for (const ea of existingAppts) {
+            existingSet.add(`${ea.patient_id}_${new Date(ea.appointment_datetime).toISOString()}`)
+          }
         }
       }
 
@@ -629,13 +642,15 @@ export async function bulkImportPatients(patients: ImportPatient[]): Promise<Act
         return !existingSet.has(key)
       })
 
-      if (filteredAppts.length > 0) {
+      // Insert appointments in batches
+      for (let i = 0; i < filteredAppts.length; i += BATCH_SIZE) {
+        const batch = filteredAppts.slice(i, i + BATCH_SIZE)
         const { error: apptsErr } = await supabase
           .from('appointments')
-          .insert(filteredAppts)
+          .insert(batch)
         
         if (apptsErr) {
-          console.error('[bulkImportPatients] Appointments Insertion Error:', apptsErr.message)
+          console.error(`[bulkImportPatients] Appointments batch ${Math.floor(i / BATCH_SIZE) + 1} Error:`, apptsErr.message)
         }
       }
     }
