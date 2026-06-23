@@ -1043,6 +1043,19 @@ export default function TerminiClient({
                         {cellAppts.map((appt) => {
                           const docColor = getDoctorColor(appt.doctor_name)
                           const isHighlighted = matchingAppointments.length > 0 && currentMatchIndex !== -1 && appt.id === matchingAppointments[currentMatchIndex].id
+                          
+                          let docAccentBorder = 'border-l-slate-400'
+                          if (appt.doctor_name) {
+                            const name = appt.doctor_name.toLowerCase()
+                            if (name.includes('slaviš') || name.includes('slavis')) {
+                              docAccentBorder = 'border-l-emerald-500'
+                            } else if (name.includes('nebojš') || name.includes('nebojs')) {
+                              docAccentBorder = 'border-l-sky-500'
+                            } else if (name.includes('elen') || name.includes('đurđ') || name.includes('djurdj')) {
+                              docAccentBorder = 'border-l-rose-500'
+                            }
+                          }
+
                           return (
                             <div
                               key={appt.id}
@@ -1050,7 +1063,7 @@ export default function TerminiClient({
                                 e.stopPropagation()
                                 handleEditClick(appt)
                               }}
-                              className={`px-1.5 py-1 rounded-lg border text-left cursor-pointer transition-all w-full ${docColor.bg} ${docColor.border} ${
+                              className={`px-2 py-1.5 rounded-lg border-y border-r border-l-4 border-slate-200 bg-white hover:border-slate-355 text-left cursor-pointer transition-all w-full ${docAccentBorder} ${
                                 isHighlighted ? 'ring-2 ring-sky-400 scale-[1.02] shadow-sm' : ''
                               }`}
                             >
@@ -1058,7 +1071,7 @@ export default function TerminiClient({
                                 <span className={`text-[9px] font-black ${docColor.text}`}>
                                   {formatTime(appt.appointment_datetime)}
                                 </span>
-                                <span className="text-slate-650 font-bold shrink-0 text-[8.5px] opacity-90 leading-none">
+                                <span className="text-slate-500 font-bold shrink-0 text-[8.5px] opacity-90 leading-none">
                                   {appt.doctor_name?.split(' ')?.[1] || 'Zubar'}
                                 </span>
                               </div>
@@ -1066,7 +1079,7 @@ export default function TerminiClient({
                                 {appt.patient?.first_name} {appt.patient?.last_name || ''}
                               </p>
                               {appt.treatment_today && (
-                                <p className="text-slate-600 text-[9.5px] leading-tight font-medium border-t border-slate-200 pt-0.5 mt-0.5 break-words">
+                                <p className="text-slate-650 text-[9.5px] leading-tight font-medium border-t border-slate-200 pt-0.5 mt-0.5 break-words">
                                   🦷 {appt.treatment_today}
                                 </p>
                               )}
@@ -1141,13 +1154,13 @@ export default function TerminiClient({
                         const isNebojsa = appt.doctor_name?.toLowerCase().includes('nebojš') || appt.doctor_name?.toLowerCase().includes('nebojs')
                         const isDjurdjina = appt.doctor_name?.toLowerCase().includes('đurđ') || appt.doctor_name?.toLowerCase().includes('djurdj')
 
-                        let customCardClasses = 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:border-slate-300'
+                        let docAccentBorder = 'border-l-slate-400'
                         if (isSlavisa) {
-                          customCardClasses = 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100 hover:border-emerald-300'
+                          docAccentBorder = 'border-l-emerald-500'
                         } else if (isNebojsa) {
-                          customCardClasses = 'bg-sky-50 border-sky-200 text-sky-800 hover:bg-sky-100 hover:border-sky-300'
+                          docAccentBorder = 'border-l-sky-500'
                         } else if (isDjurdjina) {
-                          customCardClasses = 'bg-rose-50 border-rose-200 text-rose-800 hover:bg-rose-100 hover:border-rose-300'
+                          docAccentBorder = 'border-l-rose-500'
                         }
 
                         const isHighlighted = matchingAppointments.length > 0 && currentMatchIndex !== -1 && appt.id === matchingAppointments[currentMatchIndex].id
@@ -1158,7 +1171,7 @@ export default function TerminiClient({
                                 e.stopPropagation()
                                 handleEditClick(appt)
                               }}
-                              className={`px-1.5 py-1 rounded-lg border text-[11px] font-black leading-snug flex flex-col gap-0 hover:scale-[1.01] transition-all cursor-pointer ${customCardClasses} ${
+                              className={`px-2 py-1.5 rounded-lg border-y border-r border-l-4 border-slate-200 bg-white hover:border-slate-355 text-[11px] font-black leading-snug flex flex-col gap-0 hover:scale-[1.01] transition-all cursor-pointer ${docAccentBorder} ${
                                 isHighlighted ? 'ring-2 ring-sky-400 scale-[1.02] shadow-sm' : ''
                               }`}
                             >
@@ -1169,7 +1182,7 @@ export default function TerminiClient({
                               <span className="text-slate-800 font-black flex-1 text-[10.5px] ml-0.5 break-words leading-snug">
                                 {appt.patient?.first_name} {appt.patient?.last_name || ''}
                               </span>
-                              <span className="text-slate-650 font-bold shrink-0 text-[8.5px] opacity-90 leading-none">
+                              <span className="text-slate-555 font-bold shrink-0 text-[8.5px] opacity-90 leading-none">
                                 {appt.doctor_name?.split(' ')?.[1] || 'Zubar'}
                               </span>
                             </div>
@@ -1237,28 +1250,28 @@ export default function TerminiClient({
                           return (
                             <div 
                               key={appt.id}
-                              className={`flex items-center gap-3 py-1.5 rounded-xl px-2 transition-all relative ${
-                                isHighlighted ? 'ring-2 ring-sky-400 bg-sky-500/10 shadow-[0_0_15px_rgba(56,189,248,0.55)]' : 'hover:bg-white/[0.02]'
+                              className={`flex items-center gap-3 py-2 rounded-xl px-3 border border-slate-200 bg-white hover:border-slate-350 hover:bg-slate-50/50 shadow-sm transition-all relative ${
+                                isHighlighted ? 'ring-2 ring-sky-400 bg-sky-50/55' : ''
                               }`}
                             >
                               {/* Time display — compact, inline */}
                               <div className="shrink-0 w-12 text-center">
-                                <div className="text-sm font-black text-sky-400 leading-none">
+                                <div className="text-sm font-black text-[#0284C7] leading-none">
                                   {formatTime(appt.appointment_datetime)}
                                 </div>
                               </div>
 
                               {/* Divider */}
-                              <div className="w-px self-stretch bg-white/5" />
+                              <div className="w-px self-stretch bg-slate-200" />
 
                               {/* Details: Single row layout */}
                               <div className="flex-1 min-w-0 flex items-center gap-3">
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2">
-                                    <p className="text-white text-sm font-extrabold leading-tight truncate">
+                                    <p className="text-slate-900 text-sm font-extrabold leading-tight truncate">
                                       {appt.patient?.first_name} {appt.patient?.last_name || ''}
                                     </p>
-                                    <span className="text-slate-600 text-[10px] font-bold font-mono shrink-0 hidden sm:inline">
+                                    <span className="text-slate-500 text-[10px] font-bold font-mono shrink-0 hidden sm:inline">
                                       {appt.patient?.phone?.startsWith('/') ? '/' : appt.patient?.phone}
                                     </span>
                                   </div>
@@ -1282,8 +1295,8 @@ export default function TerminiClient({
                                     </span>
                                   )}
                                   {appt.reminder_sent && (
-                                    <span className="text-[9px] text-emerald-400 font-extrabold hidden sm:inline">
-                                      ✓ SMS
+                                    <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg font-bold flex items-center gap-1 shrink-0 hidden sm:inline-flex">
+                                      ✓ SMS Poslat
                                     </span>
                                   )}
                                 </div>

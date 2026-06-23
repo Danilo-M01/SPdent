@@ -469,13 +469,31 @@ export async function bulkImportPatients(patients: ImportPatient[]): Promise<Act
     const supabase = await createClient()
     
     // 1. Fetch existing patients to match potential candidates and check phone availability
-    const { data: existing, error: fetchErr } = await supabase
-      .from('patients')
-      .select('first_name, last_name, phone')
+    const existing: { first_name: string; last_name: string | null; phone: string }[] = []
+    let offset = 0
+    const PAGE_LIMIT = 1000
+    let hasMore = true
 
-    if (fetchErr) {
-      console.error('[bulkImportPatients] Fetch existing failed:', fetchErr.message)
-      return { success: false, error: 'Greška pri učitavanju baze pacijenata.' }
+    while (hasMore) {
+      const { data: pageData, error: fetchErr } = await supabase
+        .from('patients')
+        .select('first_name, last_name, phone')
+        .range(offset, offset + PAGE_LIMIT - 1)
+
+      if (fetchErr) {
+        console.error('[bulkImportPatients] Fetch existing failed:', fetchErr.message)
+        return { success: false, error: 'Greška pri učitavanju baze pacijenata.' }
+      }
+
+      if (pageData && pageData.length > 0) {
+        existing.push(...pageData)
+        offset += PAGE_LIMIT
+        if (pageData.length < PAGE_LIMIT) {
+          hasMore = false
+        }
+      } else {
+        hasMore = false
+      }
     }
 
     // Map existing no-phone patients by normalized name key -> generated phone number
@@ -483,19 +501,17 @@ export async function bulkImportPatients(patients: ImportPatient[]): Promise<Act
     // Map existing regular patients by phone number -> name
     const existingPhoneMap = new Map<string, { first_name: string; last_name: string | null }>()
 
-    if (existing) {
-      for (const p of existing) {
-        if (p.phone.startsWith('/-no-phone-')) {
-          const key = `${p.first_name.trim().toLowerCase()}${(p.last_name || '').trim().toLowerCase()}`.replace(/[\s\._-]/g, '')
-          existingNoPhoneMap.set(key, p.phone)
-        } else if (!p.phone.startsWith('/')) {
-          existingPhoneMap.set(p.phone, { first_name: p.first_name, last_name: p.last_name })
-        }
+    for (const p of existing) {
+      if (p.phone.startsWith('/-no-phone-')) {
+        const key = `${p.first_name.trim().toLowerCase()}${(p.last_name || '').trim().toLowerCase()}`.replace(/[\s\._-]/g, '')
+        existingNoPhoneMap.set(key, p.phone)
+      } else if (!p.phone.startsWith('/')) {
+        existingPhoneMap.set(p.phone, { first_name: p.first_name, last_name: p.last_name })
       }
     }
 
-    // Keep track of phone numbers assigned within this import batch to avoid collisions inside the same statement
-    const batchPhoneSet = new Set<string>()
+    // Track phone numbers assigned within this import batch to avoid collisions inside the same statement
+    const batchPhoneOwnerMap = new Map<string, string>()
 
     // Format patients to match schema
     const formattedPatients = patients.map(p => {
@@ -512,29 +528,30 @@ export async function bulkImportPatients(patients: ImportPatient[]): Promise<Act
         if (existingNoPhoneMap.has(nameKey)) {
           // Match existing no-phone record to prevent creating duplicates on re-import
           phoneVal = existingNoPhoneMap.get(nameKey)!
+          // Remove from map so subsequent rows with the same name in this batch generate new unique IDs
+          existingNoPhoneMap.delete(nameKey)
         } else {
-          // Generate key and save to temp map to avoid dups within the same imported batch
+          // Generate a unique phone value for this patient
           phoneVal = `/-no-phone-${Math.random().toString(36).substring(2, 10)}`
-          existingNoPhoneMap.set(nameKey, phoneVal)
         }
       } else {
         // It has a phone number. Check if it collides with an existing patient of a different name,
-        // or if it collides with a patient already processed in this batch.
+        // or if it collides with a patient already processed in this batch under a different name.
         const existingOwner = existingPhoneMap.get(phoneVal)
-        const isDuplicateInBatch = batchPhoneSet.has(phoneVal)
+        const batchOwnerName = batchPhoneOwnerMap.get(phoneVal)
+        
+        const isCollision = (existingOwner && 
+          (existingOwner.first_name.trim().toLowerCase() !== fName.trim().toLowerCase() || 
+           (existingOwner.last_name || '').trim().toLowerCase() !== lName.trim().toLowerCase())) ||
+          (batchOwnerName && batchOwnerName !== nameKey)
 
-        if (
-          (existingOwner && 
-            (existingOwner.first_name.trim().toLowerCase() !== fName.trim().toLowerCase() || 
-             (existingOwner.last_name || '').trim().toLowerCase() !== lName.trim().toLowerCase())) || 
-          isDuplicateInBatch
-        ) {
+        if (isCollision) {
           // Collision: treat as no-phone, generate code, append original phone to notes
           noteExtra = `Uvezen broj telefona: ${phoneVal}`
           phoneVal = `/-no-phone-${Math.random().toString(36).substring(2, 10)}`
         } else {
-          // Normal phone number: track to prevent duplicate updates in the same upsert
-          batchPhoneSet.add(phoneVal)
+          // Normal phone number: track to prevent collision with other names
+          batchPhoneOwnerMap.set(phoneVal, nameKey)
         }
       }
 

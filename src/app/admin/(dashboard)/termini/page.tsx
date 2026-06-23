@@ -43,27 +43,46 @@ export default async function TerminiPage() {
   const startRange = new Date()
   startRange.setDate(startRange.getDate() - 90)
 
-  const { data: rawAppointments, error } = await supabase
-    .from('appointments')
-    .select(`
-      id,
-      appointment_datetime,
-      doctor_name,
-      treatment_today,
-      reminder_sent,
-      patient:patient_id (
-        id,
-        first_name,
-        last_name,
-        phone,
-        category
-      )
-    `)
-    .gte('appointment_datetime', startRange.toISOString())
-    .order('appointment_datetime', { ascending: true })
+  const rawAppointments: any[] = []
+  let apptsOffset = 0
+  const PAGE_LIMIT = 1000
+  let apptsHasMore = true
 
-  if (error) {
-    console.error('[TerminiPage] fetch error:', error.message)
+  while (apptsHasMore) {
+    const { data, error } = await supabase
+      .from('appointments')
+      .select(`
+        id,
+        appointment_datetime,
+        doctor_name,
+        treatment_today,
+        reminder_sent,
+        patient:patient_id (
+          id,
+          first_name,
+          last_name,
+          phone,
+          category
+        )
+      `)
+      .gte('appointment_datetime', startRange.toISOString())
+      .order('appointment_datetime', { ascending: true })
+      .range(apptsOffset, apptsOffset + PAGE_LIMIT - 1)
+
+    if (error) {
+      console.error('[TerminiPage] fetch error:', error.message)
+      break
+    }
+
+    if (data && data.length > 0) {
+      rawAppointments.push(...data)
+      apptsOffset += PAGE_LIMIT
+      if (data.length < PAGE_LIMIT) {
+        apptsHasMore = false
+      }
+    } else {
+      apptsHasMore = false
+    }
   }
 
   // Normalize: Supabase join can return null, an array, or an object for `patient`.
@@ -96,13 +115,31 @@ export default async function TerminiPage() {
   })
 
   // Fetch all patients for the quick booking dropdown list (autocomplete)
-  const { data: patients, error: patientsError } = await supabase
-    .from('patients')
-    .select('id, first_name, last_name, phone, category')
-    .order('first_name', { ascending: true })
+  const patients: Patient[] = []
+  let patientsOffset = 0
+  let patientsHasMore = true
 
-  if (patientsError) {
-    console.error('[TerminiPage] patients fetch error:', patientsError.message)
+  while (patientsHasMore) {
+    const { data, error: patientsError } = await supabase
+      .from('patients')
+      .select('id, first_name, last_name, phone, category')
+      .order('first_name', { ascending: true })
+      .range(patientsOffset, patientsOffset + PAGE_LIMIT - 1)
+
+    if (patientsError) {
+      console.error('[TerminiPage] patients fetch error:', patientsError.message)
+      break
+    }
+
+    if (data && data.length > 0) {
+      patients.push(...(data as unknown as Patient[]))
+      patientsOffset += PAGE_LIMIT
+      if (data.length < PAGE_LIMIT) {
+        patientsHasMore = false
+      }
+    } else {
+      patientsHasMore = false
+    }
   }
 
   return (
