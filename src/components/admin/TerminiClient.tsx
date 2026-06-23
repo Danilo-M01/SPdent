@@ -1585,24 +1585,24 @@ export default function TerminiClient({
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="fixed inset-0 z-50 flex items-center justify-center p-4"
             >
-              <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-3xl p-6 shadow-2xl shadow-black/80 space-y-4">
-                <div className="flex justify-between items-start pb-3 border-b border-white/5">
+              <div className="w-full max-w-md bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl shadow-slate-200/50 space-y-4">
+                <div className="flex justify-between items-start pb-3 border-b border-slate-100">
                   <div>
-                    <h3 className="text-white font-extrabold text-lg">Upravljanje terminom</h3>
-                    <p className="text-slate-400 text-xs mt-1">
-                      Pacijent: <span className="text-white font-bold text-sm">{editingAppt.patient?.first_name} {editingAppt.patient?.last_name || ''}</span>
+                    <h3 className="text-slate-900 font-extrabold text-lg">Upravljanje terminom</h3>
+                    <p className="text-slate-550 text-xs mt-1">
+                      Pacijent: <span className="text-slate-900 font-extrabold text-sm">{editingAppt.patient?.first_name} {editingAppt.patient?.last_name || ''}</span>
                     </p>
                     <div className="flex items-center gap-3 mt-1.5">
-                      <span className="flex items-center gap-1.5 text-slate-400 text-xs font-bold">
-                        <Phone size={12} className="text-slate-500" />
-                        <span className="text-slate-300 font-mono">
+                      <span className="flex items-center gap-1.5 text-slate-500 text-xs font-bold">
+                        <Phone size={12} className="text-slate-400" />
+                        <span className="text-slate-700 font-mono">
                           {editingAppt.patient?.phone?.startsWith('/') ? 'Bez telefona' : editingAppt.patient?.phone || 'Bez telefona'}
                         </span>
                       </span>
                       <span className={`flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
                         editingAppt.reminder_sent
-                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
-                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                          : 'bg-amber-50 text-amber-800 border border-amber-250'
                       }`}>
                         {editingAppt.reminder_sent ? '✓ SMS poslat' : '✗ SMS nije poslat'}
                       </span>
@@ -1610,19 +1610,19 @@ export default function TerminiClient({
                   </div>
                   <button
                     onClick={() => setEditingAppt(null)}
-                    className="p-1.5 rounded-lg bg-slate-950 border border-white/5 text-slate-400 hover:text-white cursor-pointer"
+                    className="p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-550 hover:text-slate-800 hover:bg-slate-100 cursor-pointer"
                   >
                     <X size={16} />
                   </button>
                 </div>
 
                 {successMsg && (
-                  <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-sm font-bold">
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-sm font-bold">
                     {successMsg}
                   </div>
                 )}
                 {errorMsg && (
-                  <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl text-sm font-bold">
+                  <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-sm font-bold">
                     {errorMsg}
                   </div>
                 )}
@@ -1630,26 +1630,26 @@ export default function TerminiClient({
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3.5">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Datum</label>
+                      <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Datum</label>
                       <input
                         type="date"
                         value={editDate}
                         onChange={(e) => setEditDate(e.target.value)}
-                        className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-bold text-sm outline-none focus:border-sky-500 transition-colors"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-bold text-sm outline-none focus:border-sky-500 focus:bg-white transition-colors"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Vreme</label>
+                      <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Vreme</label>
                       {editTimeSlots.length === 0 ? (
-                        <div className="w-full bg-red-950/50 border border-red-500/20 rounded-xl px-3.5 py-2.5 text-red-400 font-bold text-sm text-center">
+                        <div className="w-full bg-red-50 border border-red-200 rounded-xl px-3.5 py-2.5 text-red-700 font-bold text-sm text-center">
                           Zatvoreno
                         </div>
                       ) : (
                         <select
                           value={editTime}
                           onChange={(e) => setEditTime(e.target.value)}
-                          className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-bold text-sm outline-none focus:border-sky-500 transition-colors"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-bold text-sm outline-none focus:border-sky-500 focus:bg-white transition-colors"
                         >
                           {editTimeSlots.map((time) => (
                             <option key={time} value={time}>
@@ -1662,11 +1662,11 @@ export default function TerminiClient({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Lekar</label>
+                    <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Lekar</label>
                     <select
                       value={editDoctor}
                       onChange={(e) => setEditDoctor(e.target.value)}
-                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-bold text-sm outline-none focus:border-sky-500 transition-colors"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-bold text-sm outline-none focus:border-sky-500 focus:bg-white transition-colors"
                     >
                       {DOCTORS.map(d => (
                         <option key={d} value={d}>{d}</option>
@@ -1675,12 +1675,12 @@ export default function TerminiClient({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">Tretman za danas</label>
+                    <label className="block text-[11px] font-bold text-slate-500 mb-1.5 uppercase tracking-wider">Tretman za danas</label>
                     <textarea
                       value={editTreatment}
                       onChange={(e) => setEditTreatment(e.target.value)}
                       placeholder="npr. Plomba 6-ica, Vadjenje zuba, Pregled..."
-                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-white font-bold text-sm outline-none focus:border-sky-500 resize-none h-20 placeholder-slate-600 transition-colors"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-900 font-bold text-sm outline-none focus:border-sky-500 focus:bg-white resize-none h-20 placeholder-slate-400 transition-colors"
                     />
                   </div>
                 </div>
@@ -1689,14 +1689,14 @@ export default function TerminiClient({
                   <button
                     onClick={handleSaveEdit}
                     disabled={isSubmitting}
-                    className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-sm font-bold cursor-pointer transition-colors"
+                    className="flex-1 py-2.5 bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-600 hover:to-indigo-600 text-white rounded-xl text-sm font-extrabold cursor-pointer transition-all shadow-lg shadow-sky-500/10 disabled:from-slate-100 disabled:to-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
                   >
                     Sačuvaj izmene
                   </button>
                   <button
                     onClick={() => setDeleteConfirmId(editingAppt.id)}
                     disabled={isSubmitting}
-                    className="py-2.5 px-4 bg-red-950 border border-red-500/20 text-red-400 rounded-xl text-sm font-bold cursor-pointer transition-colors"
+                    className="py-2.5 px-4 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-xl text-sm font-bold cursor-pointer transition-colors"
                   >
                     Obriši
                   </button>
@@ -1724,25 +1724,25 @@ export default function TerminiClient({
               exit={{ opacity: 0, scale: 0.95 }}
               className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
             >
-              <div className="w-full max-w-sm bg-slate-900 border border-red-500/20 rounded-3xl p-6 shadow-2xl shadow-black/80 pointer-events-auto space-y-4 text-center">
-                <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto text-red-400 text-xl font-bold">
+              <div className="w-full max-w-sm bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl shadow-slate-200/50 pointer-events-auto space-y-4 text-center">
+                <div className="w-12 h-12 rounded-full bg-red-50 border border-red-200 flex items-center justify-center mx-auto text-red-650 text-xl font-bold">
                   ⚠️
                 </div>
-                <h4 className="text-white font-extrabold text-base">Brisanje termina</h4>
-                <p className="text-slate-400 text-xs leading-relaxed">
+                <h4 className="text-slate-900 font-extrabold text-base">Brisanje termina</h4>
+                <p className="text-slate-500 text-xs leading-relaxed">
                   Da li ste sigurni da želite trajno obrisati ovaj termin? Ova akcija je nepovratna i SMS podsetnik neće biti poslat.
                 </p>
                 <div className="flex gap-2 pt-2">
                   <button
                     onClick={() => handleDelete(deleteConfirmId)}
                     disabled={isSubmitting}
-                    className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors"
+                    className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors"
                   >
                     Obriši trajno
                   </button>
                   <button
                     onClick={() => setDeleteConfirmId(null)}
-                    className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-xl text-xs font-bold cursor-pointer transition-colors"
+                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold cursor-pointer transition-colors"
                   >
                     Otkaži
                   </button>
