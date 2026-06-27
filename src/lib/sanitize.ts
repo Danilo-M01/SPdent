@@ -37,14 +37,55 @@ export function sanitizeText(input: unknown): string {
 }
 
 /**
- * Sanitizes a phone number — digits, spaces, +, -, (, ) only.
+ * Sanitizes and normalizes a phone number to international format.
+ *
+ * Serbian numbers are normalized to +381XXXXXXXXX format.
+ * Montenegro (+382), Bosnia (+387), etc. are also handled.
+ * Local formats like 060/123-456, 064-811-10-90, 011/35-10-965 are converted.
+ *
+ * Returns '/' if the input is empty, null, or cannot be parsed as a valid phone.
  */
 export function sanitizePhone(input: unknown): string {
   if (input === null || input === undefined) return '/'
   const str = String(input).trim()
   if (str === '' || str === '/') return '/'
-  // Allow numbers, spaces, +, -, (, ), and /
-  return str.replace(/[^0-9\s\+\-\(\)\/]/g, '').trim()
+
+  // Strip everything except digits and leading +
+  let cleaned = str.replace(/[^0-9+]/g, '')
+  if (!cleaned) return '/'
+
+  // 00... international prefix → +...
+  if (cleaned.startsWith('00')) {
+    cleaned = '+' + cleaned.substring(2)
+  }
+
+  // Bare country code without + (e.g. 38160..., 38269...)
+  if (/^38[0-9]/.test(cleaned) && cleaned.length >= 10) {
+    cleaned = '+' + cleaned
+  }
+
+  // Remove double-zero after country code: +381060... → +38160...
+  const doublePrefixMatch = cleaned.match(/^(\+38[0-9])0(\d+)$/)
+  if (doublePrefixMatch) {
+    cleaned = doublePrefixMatch[1] + doublePrefixMatch[2]
+  }
+
+  // Local Serbian number starting with 0 (06x, 011, 02x, etc.)
+  if (cleaned.startsWith('0') && cleaned.length >= 9) {
+    cleaned = '+381' + cleaned.substring(1)
+  }
+
+  // Short local number without leading 0 (e.g. 6x..., 11...) — 8-9 digits
+  if (/^[1-9]\d{7,8}$/.test(cleaned)) {
+    cleaned = '+381' + cleaned
+  }
+
+  // Must have at least 6 digits to be considered valid
+  if (cleaned.replace(/[^0-9]/g, '').length < 6) {
+    return '/'
+  }
+
+  return cleaned
 }
 
 /**

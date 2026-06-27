@@ -126,9 +126,77 @@ function mapDoctorName(raw: unknown): string | null {
 
 function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _generatedPhone?: string } {
   // ── Regex patterns za prepoznavanje podataka ───────────────────────────────
-  const PHONE_RE = /^\+?[\d\s\-\(\)\.]{6,20}$/
+  const PHONE_RE = /^[\+]?[\d\s\-\(\)\.\/]{6,20}$/
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   const NAME_RE  = /^[A-Za-zÀ-žČčĆćŠšŽžĐđ][A-Za-zÀ-žČčĆćŠšŽžĐđ\s\-'\.]{1,59}$/
+
+  // ── Detect headerless spreadsheets (__EMPTY columns from SheetJS) ─────────
+  // Pattern discovered from real data:
+  //   Column 0 (__EMPTY or first unnamed): Last name (Prezime)
+  //   __EMPTY_1: First name (Ime)
+  //   __EMPTY_2: Birth year (Godište)
+  //   __EMPTY_3: (varies)
+  //   __EMPTY_4: Phone number
+  const hasEmptyColumns = Object.keys(row).some(k => k.startsWith('__EMPTY'))
+  if (hasEmptyColumns) {
+    // Get values from the known column positions
+    const col0Key = Object.keys(row).find(k => k === '__EMPTY') || Object.keys(row)[0]
+    const col0Val = String(row[col0Key] ?? '').trim()
+    const col1Val = String(row['__EMPTY_1'] ?? '').trim()
+    const col2Val = String(row['__EMPTY_2'] ?? '').trim()
+    const col4Val = String(row['__EMPTY_4'] ?? '').trim()
+
+    // Determine last name (col0) and first name (col1)
+    let firstName = col1Val || col0Val || 'Nepoznato'
+    let lastName: string | null = col1Val ? col0Val : null
+
+    // Normalize phone from col4
+    let phone = col4Val
+    // Quick local normalization (strip non-digit except +)
+    if (phone) {
+      let cleaned = phone.replace(/[^0-9+]/g, '')
+      if (cleaned.startsWith('00')) cleaned = '+' + cleaned.substring(2)
+      if (/^38[0-9]/.test(cleaned) && cleaned.length >= 10) cleaned = '+' + cleaned
+      const dpMatch = cleaned.match(/^(\+38[0-9])0(\d+)$/)
+      if (dpMatch) cleaned = dpMatch[1] + dpMatch[2]
+      if (cleaned.startsWith('0') && cleaned.length >= 9) cleaned = '+381' + cleaned.substring(1)
+      if (/^[1-9]\d{7,8}$/.test(cleaned)) cleaned = '+381' + cleaned
+      phone = cleaned.replace(/[^0-9]/g, '').length >= 6 ? cleaned : ''
+    }
+
+    // Build notes from extra data
+    const notesParts: string[] = []
+    if (col2Val) notesParts.push(`Godište: ${col2Val}`)
+
+    // Collect any other __EMPTY_N columns we haven't used
+    const usedKeys = new Set([col0Key, '__EMPTY_1', '__EMPTY_2', '__EMPTY_4'])
+    for (const key in row) {
+      if (!usedKeys.has(key)) {
+        const val = String(row[key] ?? '').trim()
+        if (val) notesParts.push(`${key}: ${val}`)
+      }
+    }
+
+    let _generatedPhone: string | undefined
+    if (!phone || phone === '/' || phone.startsWith('/')) {
+      _generatedPhone = `/-no-phone-${Math.random().toString(36).substring(2, 10)}-${Date.now().toString(36)}`
+      phone = '/'
+    }
+
+    return {
+      first_name: firstName.trim(),
+      last_name: lastName ? lastName.trim() : null,
+      phone: phone || '/',
+      email: null,
+      parent_name: null,
+      medical_alerts: null,
+      notes: notesParts.length > 0 ? notesParts.join(' | ') : null,
+      category: 'regular',
+      appointment_date: null,
+      doctor_name: null,
+      _generatedPhone,
+    }
+  }
 
   // ── Normalizacija svih ključeva (bez razmaka, tačaka, crtica, slova mala) ──
   const normMap: Record<string, { val: string; origKey: string }> = {}
@@ -205,7 +273,7 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
     for (const nk in normMap) {
       if (!usedNormKeys.has(nk)) {
         const { val } = normMap[nk]
-        if (PHONE_RE.test(val) && val.replace(/[\s\-\(\)\.]/g,'').length >= 6) {
+        if (PHONE_RE.test(val) && val.replace(/[\s\-\(\)\.\/]/g,'').length >= 6) {
           phone = val
           usedNormKeys.add(nk)
           break
@@ -313,6 +381,18 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
   }
 
   const notes = notesParts.join(' | ')
+
+  // Normalize phone number using the same logic as sanitizePhone
+  if (phone && phone !== '/' && !phone.startsWith('/')) {
+    let cleaned = phone.replace(/[^0-9+]/g, '')
+    if (cleaned.startsWith('00')) cleaned = '+' + cleaned.substring(2)
+    if (/^38[0-9]/.test(cleaned) && cleaned.length >= 10) cleaned = '+' + cleaned
+    const dpMatch = cleaned.match(/^(\+38[0-9])0(\d+)$/)
+    if (dpMatch) cleaned = dpMatch[1] + dpMatch[2]
+    if (cleaned.startsWith('0') && cleaned.length >= 9) cleaned = '+381' + cleaned.substring(1)
+    if (/^[1-9]\d{7,8}$/.test(cleaned)) cleaned = '+381' + cleaned
+    phone = cleaned.replace(/[^0-9]/g, '').length >= 6 ? cleaned : ''
+  }
 
   // Generate a unique no-phone ID if phone is missing
   let _generatedPhone: string | undefined
@@ -429,8 +509,35 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
           setProgress(null)
           return
         }
+
+        // Deduplicate rows: only remove exact duplicate rows.
+        // A row is a duplicate ONLY if it has the same name AND the same real phone number.
+        // Patients without a phone number are NEVER deduped by name alone —
+        // two different people CAN have the same name (e.g., family members, namesakes).
+        const seen = new Map<string, typeof cleanedData[0]>()
+        const dedupedData: typeof cleanedData = []
+        for (const row of cleanedData) {
+          const phone = (row.phone || '/').trim()
+          const hasRealPhone = phone !== '/' && !phone.startsWith('/-no-phone-')
+          
+          if (hasRealPhone) {
+            // Only dedup if there's a real phone number — same phone = same patient
+            const key = `phone:${phone}`
+            if (!seen.has(key)) {
+              seen.set(key, row)
+              dedupedData.push(row)
+            }
+          } else {
+            // No phone — always keep (could be a different person with the same name)
+            dedupedData.push(row)
+          }
+        }
+        const removedCount = cleanedData.length - dedupedData.length
+        if (removedCount > 0) {
+          console.log(`[ExcelImporter] Removed ${removedCount} duplicate rows (same phone number) out of ${cleanedData.length}`)
+        }
         
-        setDataPreview(cleanedData)
+        setDataPreview(dedupedData)
         setProgress(null)
       } catch (err) {
         console.error(err)

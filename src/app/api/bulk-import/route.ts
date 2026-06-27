@@ -74,12 +74,22 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // 3. Deduplicate within this chunk by phone
+    // 3. Deduplicate within this chunk by phone (only for patients WITH a real phone).
+    //    Patients without a phone are NEVER deduped — different people CAN share a name.
     const dedupMap = new Map<string, typeof formattedPatients[0]>()
+    const finalPatients: typeof formattedPatients = []
     formattedPatients.forEach(p => {
-      dedupMap.set(p.phone, p)
+      const hasRealPhone = p.phone && p.phone !== '/' && !p.phone.startsWith('/-no-phone-')
+      if (hasRealPhone) {
+        if (!dedupMap.has(p.phone)) {
+          dedupMap.set(p.phone, p)
+          finalPatients.push(p)
+        }
+      } else {
+        // No phone — always keep
+        finalPatients.push(p)
+      }
     })
-    const finalPatients = Array.from(dedupMap.values())
 
     // 4. Upsert in sub-batches of 200 (Supabase safe limit)
     const SUB_BATCH = 200
