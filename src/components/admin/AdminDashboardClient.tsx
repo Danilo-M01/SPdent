@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import type { Patient } from '@/app/admin/(dashboard)/page'
@@ -58,6 +58,11 @@ export default function AdminDashboardClient({
   const [smsStatus, setSmsStatus] = useState<'checking' | 'online' | 'offline'>('checking')
   const [patients, setPatients] = useState<Patient[]>(initialPatients)
   const [localStats, setLocalStats] = useState(stats)
+ 
+  const handleQueryChange = useCallback((val: string) => {
+    setQuery(val)
+    setVisibleCount(48)
+  }, [])
 
   useEffect(() => {
     setPatients(initialPatients)
@@ -219,7 +224,7 @@ export default function AdminDashboardClient({
       {/* Search + Sort */}
       <div className="mb-6 flex flex-col md:flex-row gap-4 items-center">
         <div className="flex-1 w-full">
-          <GlobalSearch query={query} onQueryChange={(val) => { setQuery(val); setVisibleCount(48); }} totalCount={filteredPatients.length} />
+          <GlobalSearch query={query} onQueryChange={handleQueryChange} totalCount={filteredPatients.length} />
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Filter size={15} className="text-slate-550" />
