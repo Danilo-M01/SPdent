@@ -147,8 +147,18 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
     const col4Val = String(row['__EMPTY_4'] ?? '').trim()
 
     // Determine last name (col0) and first name (col1)
-    let firstName = col1Val || col0Val || 'Nepoznato'
-    let lastName: string | null = col1Val ? col0Val : null
+    let firstNameRaw = col1Val || col0Val || 'Nepoznato'
+    let lastNameRaw: string | null = col1Val ? col0Val : null
+
+    // Strip any numbers/digits from first and last names
+    let firstName = firstNameRaw.replace(/\d+/g, '').trim()
+    let lastName = lastNameRaw ? lastNameRaw.replace(/\d+/g, '').trim() : null
+
+    // Fallback if firstName became empty after stripping digits (e.g. it was just a number "2")
+    if (!firstName) {
+      firstName = lastName || 'Nepoznato'
+      lastName = null
+    }
 
     // Normalize phone from col4
     let phone = col4Val
@@ -262,6 +272,18 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
     }
   }
   if (!firstName) firstName = 'Nepoznato'
+
+  // Clean names (strip digits)
+  firstName = firstName.replace(/\d+/g, '').trim()
+  if (lastName) {
+    lastName = lastName.replace(/\d+/g, '').trim()
+  }
+
+  // Fallback if firstName became empty after stripping digits
+  if (!firstName) {
+    firstName = lastName || 'Nepoznato'
+    lastName = ''
+  }
 
   // ── 2. Telefon ────────────────────────────────────────────────────────────
   let phone = find([
