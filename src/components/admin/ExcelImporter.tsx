@@ -441,7 +441,7 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
 // ---------------------------------------------------------------------------
 // CHUNK SIZE — how many patients per API call
 // ---------------------------------------------------------------------------
-const CHUNK_SIZE = 300
+const CHUNK_SIZE = 100
 
 // ---------------------------------------------------------------------------
 // Progress state interface
@@ -626,28 +626,56 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
       progressState.currentChunk = Math.floor(i / CHUNK_SIZE) + 1
       setProgress({ ...progressState })
 
-      try {
-        const res = await fetch('/api/bulk-import', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ patients: chunk }),
-        })
+      let successChunk = false
+      let attempts = 0
+      const maxAttempts = 3 // Proba + 2 retrija
+      let lastError = ''
 
-        const result = await res.json()
+      while (attempts < maxAttempts && !successChunk && !abortRef.current) {
+        try {
+          if (attempts > 0) {
+            // Pauza između retry pokušaja (eksponencijalna: 1.5s pa 3s)
+            const delay = attempts === 1 ? 1500 : 3000
+            console.log(`[ExcelImporter] Ponovni pokušaj ${attempts} za chunk ${progressState.currentChunk} nakon ${delay}ms...`)
+            await new Promise(resolve => setTimeout(resolve, delay))
+          }
+          attempts++
 
+          const res = await fetch('/api/bulk-import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ patients: chunk }),
+          })
+
+          if (!res.ok) {
+            throw new Error(`Greška na serveru: Status ${res.status}`)
+          }
+
+          const result = await res.json()
+
+          if (result.success || (result.inserted && result.inserted > 0)) {
+            successChunk = true
+            progressState.processedRows += chunk.length
+            if (result.inserted) {
+              progressState.insertedRows += result.inserted
+            }
+            if (result.errors && result.errors.length > 0) {
+              progressState.errors.push(...result.errors.map((e: string) => `Chunk ${progressState.currentChunk}: ${e}`))
+            }
+          } else {
+            throw new Error(result.error || 'Uvoz nije uspeo')
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          lastError = msg
+          console.error(`[ExcelImporter] Greška u pokušaju ${attempts} za chunk ${progressState.currentChunk}:`, msg)
+        }
+      }
+
+      if (!successChunk && !abortRef.current) {
+        progressState.errors.push(`Chunk ${progressState.currentChunk}: Neuspešan uvoz nakon ${maxAttempts} pokušaja. Poslednja greška: ${lastError}`)
+        // Nastavljamo sa sledećim chunk-ovima, obeležavamo ove kao procesuirane da ne pukne ceo uvoz
         progressState.processedRows += chunk.length
-        if (result.inserted) {
-          progressState.insertedRows += result.inserted
-        }
-        if (result.errors && result.errors.length > 0) {
-          progressState.errors.push(...result.errors.map((e: string) => `Chunk ${progressState.currentChunk}: ${e}`))
-        }
-        if (!result.success && result.error) {
-          progressState.errors.push(`Chunk ${progressState.currentChunk}: ${result.error}`)
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        progressState.errors.push(`Chunk ${progressState.currentChunk}: Mrežna greška — ${msg}`)
       }
 
       setProgress({ ...progressState })
@@ -679,12 +707,20 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
 
   // Calculate time estimates
   const getTimeEstimate = () => {
-    if (!progress || progress.phase !== 'uploading' || progress.processedRows === 0) return ''
+    if (!progress || progress.phase !== 'uploading' || progress.processedRows === 0) return 'Proračun...'
     const elapsed = (Date.now() - progress.startTime) / 1000
     const rate = progress.processedRows / elapsed
     const remaining = (progress.totalRows - progress.processedRows) / rate
-    if (remaining < 60) return `~${Math.ceil(remaining)} sek`
-    return `~${Math.ceil(remaining / 60)} min`
+    
+    if (remaining <= 0) return 'Završeno'
+    
+    const minutes = Math.floor(remaining / 60)
+    const seconds = Math.ceil(remaining % 60)
+    
+    if (minutes > 0) {
+      return `oko ${minutes} min ${seconds} sek`
+    }
+    return `oko ${seconds} sek`
   }
 
   const progressPercent = progress ? Math.round((progress.processedRows / Math.max(progress.totalRows, 1)) * 100) : 0
@@ -723,19 +759,27 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-900">Uvoz u toku...</h3>
-              <p className="text-sm text-slate-500">
-                Ne zatvarajte ovu stranicu dok se uvoz ne završi
+              <p className="text-sm text-slate-500 font-medium transition-all duration-200">
+                {progress.processedRows < progress.totalRows
+                  ? `Ubacujem pacijente ${((progress.currentChunk - 1) * CHUNK_SIZE) + 1} - ${Math.min(progress.currentChunk * CHUNK_SIZE, progress.totalRows)} od ${progress.totalRows.toLocaleString()}...`
+                  : 'Svi podaci su poslati, završavam uvoz...'}
               </p>
             </div>
           </div>
 
           {/* Progress bar */}
-          <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden border border-slate-200">
+          <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden border border-slate-200 relative">
             <motion.div
-              className="h-full rounded-full bg-gradient-to-r from-[#0284C7] to-sky-400"
+              className="h-full rounded-full bg-gradient-to-r from-[#0284C7] via-sky-400 to-[#0284C7] bg-[length:200%_auto]"
               initial={{ width: 0 }}
-              animate={{ width: `${progressPercent}%` }}
-              transition={{ duration: 0.3 }}
+              animate={{ 
+                width: `${progressPercent}%`,
+                backgroundPosition: ['0% center', '200% center']
+              }}
+              transition={{ 
+                width: { duration: 0.3 },
+                backgroundPosition: { duration: 2, repeat: Infinity, ease: 'linear' }
+              }}
             />
           </div>
 

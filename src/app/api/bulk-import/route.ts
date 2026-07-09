@@ -1,3 +1,6 @@
+export const maxDuration = 60
+export const dynamic = 'force-dynamic'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -91,8 +94,8 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // 4. Upsert in sub-batches of 200 (Supabase safe limit)
-    const SUB_BATCH = 200
+    // 4. Upsert in sub-batches of 100 (reduced for extra safety and lower payload sizes)
+    const SUB_BATCH = 100
     let insertedCount = 0
     const errors: string[] = []
 
