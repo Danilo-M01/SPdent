@@ -19,7 +19,8 @@ import {
   Filter, 
   CalendarDays,
   User,
-  Phone
+  Phone,
+  FileText
 } from 'lucide-react'
 import { 
   deleteAppointment, 
@@ -34,6 +35,7 @@ interface Patient {
   last_name: string | null
   phone: string
   category: string
+  chart_number?: string | null
 }
 
 interface Appointment {
@@ -291,6 +293,7 @@ export default function TerminiClient({
   const [patientSearch, setPatientSearch] = useState('')
   const [selectedPatientId, setSelectedPatientId] = useState<string>('')
   const [newPhone, setNewPhone] = useState('')
+  const [newChartNumber, setNewChartNumber] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
 
   // Patient Filter Search Query (Main Calendar View Filter)
@@ -396,8 +399,9 @@ export default function TerminiClient({
       const fNameMatch = p.first_name && p.first_name.toLowerCase().includes(q)
       const lNameMatch = p.last_name && p.last_name.toLowerCase().includes(q)
       const phoneMatch = p.phone && p.phone.includes(q)
+      const chartMatch = p.chart_number && p.chart_number.toLowerCase().includes(q)
       
-      if (fNameMatch || lNameMatch || phoneMatch) {
+      if (fNameMatch || lNameMatch || phoneMatch || chartMatch) {
         results.push(p)
         if (results.length >= 5) {
           break
@@ -551,6 +555,7 @@ export default function TerminiClient({
     setSelectedPatientId('')
     setPatientSearch('')
     setNewPhone('')
+    setNewChartNumber('')
     setBookTreatment('')
     setShowDropdown(false)
     setIsBookOpen(true)
@@ -588,6 +593,7 @@ export default function TerminiClient({
         patFormData.append('first_name', firstName)
         patFormData.append('last_name', lastName)
         patFormData.append('phone', newPhone.trim())
+        patFormData.append('chart_number', newChartNumber.trim())
         patFormData.append('category', 'regular')
         
         const patRes = await addPatient(null, patFormData)
@@ -610,6 +616,7 @@ export default function TerminiClient({
           first_name: firstName,
           last_name: lastName,
           phone: newPhone.trim() || `/-no-phone-${Math.random().toString(36).substring(2, 10)}`,
+          chart_number: newChartNumber.trim() || null,
           category: 'regular'
         }
       }
@@ -1287,22 +1294,27 @@ export default function TerminiClient({
                               <div className="w-px self-stretch bg-slate-200" />
 
                               {/* Details: Single row layout */}
-                              <div className="flex-1 min-w-0 flex items-center gap-3">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <p className="text-slate-900 text-sm font-extrabold leading-tight truncate">
-                                      {appt.patient?.first_name} {appt.patient?.last_name || ''}
-                                    </p>
-                                    <span className="text-slate-500 text-[10px] font-bold font-mono shrink-0 hidden sm:inline">
-                                      {appt.patient?.phone?.startsWith('/') ? '/' : appt.patient?.phone}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-slate-900 text-sm font-extrabold leading-tight truncate">
+                                    {appt.patient?.first_name} {appt.patient?.last_name || ''}
+                                  </p>
+                                  <span className="text-slate-500 text-[10px] font-bold font-mono shrink-0 hidden sm:inline">
+                                    {appt.patient?.phone?.startsWith('/') ? '/' : appt.patient?.phone}
+                                  </span>
+                                  {appt.patient?.chart_number && (
+                                    <span className="text-[#0284C7] bg-sky-50 border border-sky-100 text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-md shrink-0 hidden sm:inline-flex items-center gap-1">
+                                      <FileText size={10} className="text-[#0284C7]" />
+                                      Karton: {appt.patient.chart_number}
                                     </span>
-                                  </div>
-                                  {appt.treatment_today && (
-                                    <p className="text-slate-500 text-[11px] font-medium truncate leading-tight mt-0.5">
-                                      🦷 {appt.treatment_today}
-                                    </p>
                                   )}
                                 </div>
+                                {appt.treatment_today && (
+                                  <p className="text-slate-500 text-[11px] font-medium truncate leading-tight mt-0.5">
+                                    🦷 {appt.treatment_today}
+                                  </p>
+                                )}
+                              </div>
 
                                 {/* Badges */}
                                 <div className="flex items-center gap-1.5 shrink-0">
@@ -1464,15 +1476,23 @@ export default function TerminiClient({
                                   setSelectedPatientId(p.id)
                                   setPatientSearch(`${p.first_name} ${p.last_name || ''}`)
                                   setNewPhone(p.phone)
+                                  setNewChartNumber(p.chart_number || '')
                                   setShowDropdown(false)
                                 }}
                                 className="px-3.5 py-2.5 hover:bg-slate-55 cursor-pointer flex items-center justify-between gap-3 transition-colors relative z-30"
                               >
                                 <div>
                                   <p className="text-slate-900 font-extrabold text-xs">{p.first_name} {p.last_name || ''}</p>
-                                  <p className="text-slate-500 text-[10px] font-mono font-bold mt-0.5">
-                                    {p.phone?.startsWith('/') ? '/' : p.phone}
-                                  </p>
+                                  <div className="flex items-center gap-2 mt-0.5 text-[10px]">
+                                    <span className="text-slate-500 font-mono font-bold">
+                                      {p.phone?.startsWith('/') ? '/' : p.phone}
+                                    </span>
+                                    {p.chart_number && (
+                                      <span className="text-sky-700 bg-sky-50 border border-sky-100 font-mono font-bold px-1 rounded">
+                                        Karton: {p.chart_number}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                                 <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full border ${
                                   p.category === 'implant' ? 'bg-sky-50 text-sky-700 border-sky-200' :
@@ -1487,7 +1507,7 @@ export default function TerminiClient({
                       )}
                     </div>
 
-                    {/* Conditional rendering for Phone Number based on selection */}
+                    {/* Conditional rendering for Phone & Chart Number based on selection */}
                     <AnimatePresence initial={false}>
                       {!selectedPatientId && patientSearch.trim() !== '' && (
                         <motion.div
@@ -1496,26 +1516,45 @@ export default function TerminiClient({
                           exit={{ opacity: 0, height: 0 }}
                           className="overflow-hidden"
                         >
-                          <div className="space-y-1.5 pt-1">
-                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
-                              Broj telefona novog pacijenta * (ili '/' ako nema telefon)
-                            </label>
-                            <input
-                              type="text"
-                              value={newPhone}
-                              onChange={(e) => setNewPhone(e.target.value)}
-                              placeholder="npr. +3816..."
-                              className="w-full bg-slate-50 border border-slate-200 hover:border-slate-350 focus:border-sky-500 focus:bg-white rounded-xl px-3.5 py-2.5 text-slate-900 outline-none text-sm font-bold placeholder-slate-400 transition-colors"
-                            />
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                            <div className="space-y-1.5">
+                              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                Telefon * (ili '/')
+                              </label>
+                              <input
+                                type="text"
+                                value={newPhone}
+                                onChange={(e) => setNewPhone(e.target.value)}
+                                placeholder="npr. +3816..."
+                                className="w-full bg-slate-50 border border-slate-200 hover:border-slate-350 focus:border-sky-500 focus:bg-white rounded-xl px-3.5 py-2.5 text-slate-900 outline-none text-sm font-bold placeholder-slate-400 transition-colors"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                Broj kartona (opciono)
+                              </label>
+                              <input
+                                type="text"
+                                value={newChartNumber}
+                                onChange={(e) => setNewChartNumber(e.target.value)}
+                                placeholder="npr. 1245"
+                                className="w-full bg-slate-50 border border-slate-200 hover:border-slate-350 focus:border-sky-500 focus:bg-white rounded-xl px-3.5 py-2.5 text-slate-900 outline-none text-sm font-bold placeholder-slate-400 transition-colors"
+                              />
+                            </div>
                           </div>
                         </motion.div>
                       )}
                     </AnimatePresence>
 
                     {selectedPatientId && (
-                      <div className="flex items-center gap-2 text-emerald-800 text-xs font-bold bg-emerald-50 border border-emerald-250 px-3.5 py-2.5 rounded-xl">
+                      <div className="flex items-center gap-2 text-emerald-800 text-xs font-bold bg-emerald-50 border border-emerald-250 px-3.5 py-2.5 rounded-xl flex-wrap">
                         <Check size={14} />
                         <span>Izabran postojeći pacijent. Telefon: <strong>{newPhone?.startsWith('/') ? '/' : newPhone || '/'}</strong></span>
+                        {newChartNumber && (
+                          <span className="ml-2 text-sky-700 bg-sky-100/70 px-2 py-0.5 rounded-md font-mono">
+                            Karton: {newChartNumber}
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1627,13 +1666,19 @@ export default function TerminiClient({
                     <p className="text-slate-550 text-xs mt-1">
                       Pacijent: <span className="text-slate-900 font-extrabold text-sm">{editingAppt.patient?.first_name} {editingAppt.patient?.last_name || ''}</span>
                     </p>
-                    <div className="flex items-center gap-3 mt-1.5">
+                    <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                       <span className="flex items-center gap-1.5 text-slate-500 text-xs font-bold">
                         <Phone size={12} className="text-slate-400" />
                         <span className="text-slate-700 font-mono">
                           {editingAppt.patient?.phone?.startsWith('/') ? 'Bez telefona' : editingAppt.patient?.phone || 'Bez telefona'}
                         </span>
                       </span>
+                      {editingAppt.patient?.chart_number && (
+                        <span className="flex items-center gap-1 text-sky-700 bg-sky-50 border border-sky-100 text-[11px] font-bold px-2 py-0.5 rounded-lg">
+                          <FileText size={11} className="text-[#0284C7]" />
+                          <span>Karton: {editingAppt.patient.chart_number}</span>
+                        </span>
+                      )}
                       <span className={`flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
                         editingAppt.reminder_sent
                           ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'

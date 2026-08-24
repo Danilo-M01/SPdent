@@ -2,6 +2,11 @@
 """
 SP DENT — SMS Appointment Reminder Worker (Production-Ready)
 =============================================================
+v3 — Time-based group sending:
+  - Morning appointments (10:00-14:00 Belgrade): reminders sent 09:00-15:00 day before
+  - Afternoon appointments (14:00+):             reminders sent 18:00-21:00 day before
+  - Appointments before 10:00:                   reminders sent 09:00-15:00 day before
+
 Bugs fixed vs. v1:
   - SMS duplication: reminder_sent is now verified after update, not assumed
   - Timezone window: uses exclusive upper bound (< next day 00:00) not 23:59:59
@@ -40,6 +45,20 @@ SMS_TIMEOUT_SEC   = 10
 MAX_RETRIES       = 3
 
 # ---------------------------------------------------------------------------
+# Time-based sending groups
+# ---------------------------------------------------------------------------
+# Appointment hour (Belgrade) → which SMS sending window to use
+#
+#   Appointment 00:00–13:59  →  "morning" group  →  send SMS between 09:00–15:00
+#   Appointment 14:00–23:59  →  "evening" group  →  send SMS between 18:00–21:00
+#
+MORNING_SEND_START = 9    # SMS sending starts at 09:00
+MORNING_SEND_END   = 15   # SMS sending ends   at 15:00 (exclusive)
+EVENING_SEND_START = 18   # SMS sending starts at 18:00
+EVENING_SEND_END   = 21   # SMS sending ends   at 21:00 (exclusive)
+APPT_AFTERNOON_CUTOFF = 14  # Appointments at or after 14:00 are "afternoon"
+
+# ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
 logging.basicConfig(
@@ -75,7 +94,6 @@ def validate_config() -> None:
 def get_tomorrow_window_utc() -> tuple[str, str]:
     """
     Returns UTC ISO strings for the FULL next calendar day in Belgrade time.
-    Uses Python 3.9+ zoneinfo for accurate daylight savings offsets.
     """
     now_belgrade = datetime.now(BELGRADE_TZ)
     tomorrow_date = now_belgrade.date() + timedelta(days=1)
@@ -92,6 +110,12 @@ def get_tomorrow_window_utc() -> tuple[str, str]:
         start_local.astimezone(UTC_TZ).isoformat(),
         end_local.astimezone(UTC_TZ).isoformat(),
     )
+
+
+def get_appointment_hour_belgrade(dt_iso: str) -> int:
+    """Returns the hour (0-23) of the appointment in Belgrade timezone."""
+    dt = datetime.fromisoformat(dt_iso.replace("Z", "+00:00"))
+    return dt.astimezone(BELGRADE_TZ).hour
 
 
 def format_time_belgrade(dt_iso: str) -> str:
@@ -192,6 +216,52 @@ def mark_reminder_sent(supabase: Client, appointment_id: str) -> bool:
         return False
 
 
+def process_appointments(supabase: Client, appointments: list, group_label: str) -> tuple[int, int, int]:
+    """
+    Sends SMS reminders for a list of appointments.
+    Returns (sent_count, failed_count, skipped_count).
+    """
+    sent_count = failed_count = skipped_count = 0
+    session = get_robust_session()
+
+    for appt in appointments:
+        appt_id    = appt.get("id", "")
+        patient    = appt.get("patients") or {}
+        first_name = patient.get("first_name", "Pacijent")
+        phone      = patient.get("phone", "").strip()
+
+        if not phone or phone.startswith("/"):
+            log.info(f"  ℹ️  [{group_label}] {appt_id}: Pacijent {first_name} nema unet broj telefona (označeno sa {phone}). Označavamo podsetnik kao poslat u bazi.")
+            mark_reminder_sent(supabase, appt_id)
+            skipped_count += 1
+            continue
+
+        appt_time = format_time_belgrade(appt["appointment_datetime"])
+        message   = build_message(first_name, appt_time)
+
+        log.info(f"→ [{group_label}] {first_name} ({phone})  termin: {appt_time}h")
+
+        sms_ok = send_sms(session, phone, message)
+
+        if sms_ok:
+            db_ok = mark_reminder_sent(supabase, appt_id)
+            if db_ok:
+                sent_count += 1
+                # Anti-spam delay
+                delay = random.randint(7, 15)
+                log.info(f"  Sleeping for {delay} seconds before next SMS...")
+                time.sleep(delay)
+            else:
+                log.error(
+                    f"  🔴 CRITICAL: SMS sent to {phone} but DB update failed for {appt_id}."
+                )
+                failed_count += 1
+        else:
+            failed_count += 1
+
+    return sent_count, failed_count, skipped_count
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -199,11 +269,11 @@ def mark_reminder_sent(supabase: Client, appointment_id: str) -> bool:
 def main() -> None:
     validate_config()
 
-    log.info("Starting SMS daemon worker...")
+    log.info("Starting SMS daemon worker (v3 — time-based groups)...")
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
     
     # Send starting log
-    log_to_supabase(supabase, "INFO", "SMS Daemon started", "sms_worker")
+    log_to_supabase(supabase, "INFO", "SMS Daemon started (v3 — time-based groups)", "sms_worker")
 
     while True:
         try:
@@ -211,18 +281,30 @@ def main() -> None:
             log_to_supabase(supabase, "INFO", "Heartbeat", "sms_worker")
             log.info("Heartbeat sent to Supabase.")
 
-            # 2. Check time window (18:00 - 20:00 Belgrade time) or bypass for testing
+            # 2. Check current Belgrade time and determine which group(s) to process
             now_belgrade = datetime.now(BELGRADE_TZ)
             current_hour = now_belgrade.hour
             bypass_window = os.getenv("BYPASS_TIME_WINDOW", "false").lower() == "true"
 
-            if 18 <= current_hour < 21 or bypass_window:
-                log.info(f"Inside sending window ({now_belgrade.strftime('%H:%M')}). Checking appointments...")
+            # Determine which groups are active right now
+            # Morning group:  send between 09:00–15:00 for appointments before 14:00
+            # Evening group:  send between 18:00–21:00 for appointments at 14:00+
+            in_morning_window = MORNING_SEND_START <= current_hour < MORNING_SEND_END
+            in_evening_window = EVENING_SEND_START <= current_hour < EVENING_SEND_END
+            has_active_window = in_morning_window or in_evening_window or bypass_window
+
+            if has_active_window:
                 run_start = time.monotonic()
                 start_utc, end_utc = get_tomorrow_window_utc()
                 tomorrow_str = (now_belgrade.date() + timedelta(days=1)).strftime("%d.%m.%Y")
-                log.info(f"Window: {tomorrow_str} Belgrade  |  UTC: {start_utc[:16]} → {end_utc[:16]}")
+                log.info(f"Active window at {now_belgrade.strftime('%H:%M')}. Checking tomorrow's appointments ({tomorrow_str})...")
+                log.info(f"  UTC range: {start_utc[:16]} → {end_utc[:16]}")
+                if in_morning_window or bypass_window:
+                    log.info(f"  📅 MORNING window active (09-15h) → appointments before 14:00")
+                if in_evening_window or bypass_window:
+                    log.info(f"  🌙 EVENING window active (18-21h) → appointments 14:00+")
 
+                # Fetch ALL unreminded appointments for tomorrow
                 result = (
                     supabase.table("appointments")
                     .select("id, appointment_datetime, patients(first_name, phone)")
@@ -232,52 +314,52 @@ def main() -> None:
                     .execute()
                 )
 
-                appointments = result.data or []
-                log.info(f"Found {len(appointments)} unreminded appointment(s).")
+                all_appointments = result.data or []
+                log.info(f"Found {len(all_appointments)} total unreminded appointment(s) for tomorrow.")
 
-                if appointments:
-                    sent_count = failed_count = skipped_count = 0
-                    session = get_robust_session()
+                if all_appointments:
+                    # Split into morning (before 14:00) and afternoon (14:00+) groups
+                    morning_appts = []
+                    evening_appts = []
 
-                    for appt in appointments:
-                        appt_id   = appt.get("id", "")
-                        patient   = appt.get("patients") or {}
-                        first_name = patient.get("first_name", "Pacijent")
-                        phone     = patient.get("phone", "").strip()
-
-                        if not phone or phone.startswith("/"):
-                            log.info(f"  ℹ️  {appt_id}: Pacijent {first_name} nema unet broj telefona (označeno sa {phone}). Označavamo podsetnik kao poslat u bazi.")
-                            mark_reminder_sent(supabase, appt_id)
-                            skipped_count += 1
-                            continue
-
-                        appt_time = format_time_belgrade(appt["appointment_datetime"])
-                        message   = build_message(first_name, appt_time)
-
-                        log.info(f"→ {first_name} ({phone})  termin: {appt_time}h")
-
-                        sms_ok = send_sms(session, phone, message)
-
-                        if sms_ok:
-                            db_ok = mark_reminder_sent(supabase, appt_id)
-                            if db_ok:
-                                sent_count += 1
-                                # Anti-spam delay
-                                delay = random.randint(7, 15)
-                                log.info(f"  Sleeping for {delay} seconds before next SMS...")
-                                time.sleep(delay)
-                            else:
-                                log.error(
-                                    f"  🔴 CRITICAL: SMS sent to {phone} but DB update failed for {appt_id}."
-                                )
-                                failed_count += 1
+                    for appt in all_appointments:
+                        appt_hour = get_appointment_hour_belgrade(appt["appointment_datetime"])
+                        if appt_hour < APPT_AFTERNOON_CUTOFF:
+                            morning_appts.append(appt)
                         else:
-                            failed_count += 1
+                            evening_appts.append(appt)
+
+                    log.info(f"  Split: {len(morning_appts)} morning (before 14h) | {len(evening_appts)} afternoon (14h+)")
+
+                    total_sent = total_failed = total_skipped = 0
+
+                    # Process morning group (appointments before 14:00) — only during morning send window
+                    if morning_appts and (in_morning_window or bypass_window):
+                        log.info(f"📅 Processing MORNING group ({len(morning_appts)} appointments)...")
+                        s, f, sk = process_appointments(supabase, morning_appts, "JUTRO")
+                        total_sent += s
+                        total_failed += f
+                        total_skipped += sk
+                    elif morning_appts and not in_morning_window:
+                        log.info(f"  ⏳ {len(morning_appts)} morning appointments waiting — will send during 09-15h window.")
+
+                    # Process evening group (appointments 14:00+) — only during evening send window
+                    if evening_appts and (in_evening_window or bypass_window):
+                        log.info(f"🌙 Processing EVENING group ({len(evening_appts)} appointments)...")
+                        s, f, sk = process_appointments(supabase, evening_appts, "VEČE")
+                        total_sent += s
+                        total_failed += f
+                        total_skipped += sk
+                    elif evening_appts and not in_evening_window:
+                        log.info(f"  ⏳ {len(evening_appts)} afternoon appointments waiting — will send during 18-21h window.")
 
                     elapsed = time.monotonic() - run_start
-                    log.info(f"Finished sending round: Sent: {sent_count} | Failed: {failed_count} | Skipped: {skipped_count} (Took {elapsed:.2f}s)")
+                    log.info(f"Finished sending round: Sent: {total_sent} | Failed: {total_failed} | Skipped: {total_skipped} (Took {elapsed:.2f}s)")
+                else:
+                    elapsed = time.monotonic() - run_start
+                    log.info(f"No appointments to process. (Took {elapsed:.2f}s)")
             else:
-                log.info(f"Outside sending window ({now_belgrade.strftime('%H:%M')}). Skipping appointment check.")
+                log.info(f"Outside all sending windows ({now_belgrade.strftime('%H:%M')}). Next windows: 09-15h or 18-21h.")
 
         except Exception as err:
             log.error(f"Error in main loop iteration: {err}")

@@ -116,7 +116,8 @@ export default function AdminDashboardClient({
       const q = query.toLowerCase().trim()
       result = result.filter(p => {
         const fullName = `${p.first_name} ${p.last_name ?? ''}`.toLowerCase()
-        return fullName.includes(q) || p.phone.includes(q)
+        const chartMatch = p.chart_number ? p.chart_number.toLowerCase().includes(q) : false
+        return fullName.includes(q) || p.phone.includes(q) || chartMatch
       })
     }
 

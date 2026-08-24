@@ -99,18 +99,32 @@ export default function AddPatientModal({ onClose }: AddPatientModalProps) {
               </div>
             </div>
 
-            {/* Telefon */}
-            <div>
-              <label htmlFor="modal-phone" className={labelClass}>
-                Telefon
-              </label>
-              <input
-                id="modal-phone"
-                name="phone"
-                type="text"
-                placeholder="+381 60 123 4567 (ili '/' / prazno)"
-                className={inputClass}
-              />
+            {/* Row: Telefon + Broj kartona */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="modal-phone" className={labelClass}>
+                  Telefon
+                </label>
+                <input
+                  id="modal-phone"
+                  name="phone"
+                  type="text"
+                  placeholder="+381 60 123 4567 (ili '/')"
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label htmlFor="modal-chart-number" className={labelClass}>
+                  Broj kartona
+                </label>
+                <input
+                  id="modal-chart-number"
+                  name="chart_number"
+                  type="text"
+                  placeholder="npr. 1245"
+                  className={inputClass}
+                />
+              </div>
             </div>
 
             {/* Email */}

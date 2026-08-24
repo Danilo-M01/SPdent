@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
         medical_alerts: sanitizeText(p.medical_alerts) || null,
         notes: sanitizeText(p.notes) || null,
         category: validCategories.includes(p.category) ? p.category : 'regular',
+        chart_number: sanitizeText(p.chart_number) || null,
       }
     })
 

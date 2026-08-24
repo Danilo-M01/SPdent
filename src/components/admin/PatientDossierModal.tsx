@@ -240,6 +240,7 @@ export default function PatientDossierModal({ patient: initialPatient, onClose, 
           medical_alerts: String(formData.get('medical_alerts')) || null,
           notes: String(formData.get('notes')) || null,
           category: String(formData.get('category')),
+          chart_number: String(formData.get('chart_number') ?? '').trim() || null,
           has_hypertension: formData.get('has_hypertension') === 'true',
           has_diabetes: formData.get('has_diabetes') === 'true',
           takes_anticoagulants: formData.get('takes_anticoagulants') === 'true',
@@ -335,8 +336,13 @@ export default function PatientDossierModal({ patient: initialPatient, onClose, 
               <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
                 {patient.first_name} {patient.last_name}
               </h2>
-              <div className="flex flex-wrap gap-3 mt-2 text-sm text-slate-500">
+              <div className="flex flex-wrap gap-3 mt-2 text-sm text-slate-500 items-center">
                 <span className="flex items-center gap-1.5"><Phone size={14} className="text-slate-400" /> {patient.phone.startsWith('/') ? '/' : patient.phone}</span>
+                {patient.chart_number && (
+                  <span className="flex items-center gap-1 text-sky-700 bg-sky-50 border border-sky-100 font-semibold px-2 py-0.5 rounded-md text-xs">
+                    <FileText size={12} className="text-[#0284C7]" /> Karton: {patient.chart_number}
+                  </span>
+                )}
                 {patient.email && <span className="flex items-center gap-1.5"><Mail size={14} className="text-slate-400" /> {patient.email}</span>}
                 {patient.parent_name && <span className="text-slate-600 px-2 py-0.5 rounded-md bg-slate-100/85">Roditelj: {patient.parent_name}</span>}
               </div>
@@ -873,6 +879,10 @@ export default function PatientDossierModal({ patient: initialPatient, onClose, 
                   <div>
                     <label className="block text-xs font-semibold text-slate-650 mb-1.5">Telefon *</label>
                     <input required name="phone" defaultValue={patient.phone.startsWith('/') ? '/' : patient.phone} className="w-full bg-slate-50 border border-slate-200 hover:border-slate-300 focus:border-[#0284C7] focus:ring-2 focus:ring-sky-500/10 focus:bg-white rounded-xl px-4 py-2.5 text-slate-900 placeholder-slate-400 outline-none transition-all duration-200 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-650 mb-1.5">Broj kartona</label>
+                    <input name="chart_number" defaultValue={patient.chart_number || ''} placeholder="npr. 1245" className="w-full bg-slate-50 border border-slate-200 hover:border-slate-300 focus:border-[#0284C7] focus:ring-2 focus:ring-sky-500/10 focus:bg-white rounded-xl px-4 py-2.5 text-slate-900 placeholder-slate-400 outline-none transition-all duration-200 text-sm" />
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-650 mb-1.5">Email</label>

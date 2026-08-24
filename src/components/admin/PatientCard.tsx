@@ -6,6 +6,7 @@ import {
   Phone,
   AlertTriangle,
   Calendar,
+  FileText,
 } from 'lucide-react'
 
 const CATEGORY_BADGES: Record<string, { label: string; cls: string }> = {
@@ -79,16 +80,29 @@ export default function PatientCard({ patient, index }: PatientCardProps) {
         </div>
       )}
 
-      {/* Contact info */}
+      {/* Contact info & Chart number */}
       <div className="space-y-1.5">
-        <div className="flex items-center gap-2 text-slate-600 text-sm">
-          <Phone size={13} className="text-slate-400 shrink-0" />
-          {patient.phone.startsWith('/') ? (
-            <span className="text-slate-400 font-medium">/</span>
+        <div className="flex items-center justify-between gap-2 text-slate-600 text-sm">
+          <div className="flex items-center gap-2 min-w-0">
+            <Phone size={13} className="text-slate-400 shrink-0" />
+            {patient.phone.startsWith('/') ? (
+              <span className="text-slate-400 font-medium">/</span>
+            ) : (
+              <a href={`tel:${patient.phone}`} className="text-[#0284C7] hover:text-sky-500 font-medium transition-colors truncate">
+                {patient.phone}
+              </a>
+            )}
+          </div>
+          {patient.chart_number ? (
+            <div className="flex items-center gap-1.5 shrink-0 bg-sky-50/70 border border-sky-100 px-2 py-0.5 rounded-lg text-xs font-semibold text-slate-700">
+              <FileText size={12} className="text-[#0284C7]" />
+              <span>Karton: <span className="font-bold text-slate-900">{patient.chart_number}</span></span>
+            </div>
           ) : (
-            <a href={`tel:${patient.phone}`} className="text-[#0284C7] hover:text-sky-500 font-medium transition-colors">
-              {patient.phone}
-            </a>
+            <div className="flex items-center gap-1 shrink-0 text-slate-400 text-xs">
+              <FileText size={11} className="text-slate-350" />
+              <span>Karton: <span className="font-mono text-slate-400">-</span></span>
+            </div>
           )}
         </div>
         {patient.email && (

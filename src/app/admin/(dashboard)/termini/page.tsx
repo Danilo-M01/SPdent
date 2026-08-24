@@ -14,6 +14,7 @@ interface Patient {
   last_name: string | null
   phone: string
   category: string
+  chart_number?: string | null
 }
 
 interface Appointment {
@@ -32,6 +33,7 @@ const UNKNOWN_PATIENT: Patient = {
   last_name: 'pacijent',
   phone: '/',
   category: 'regular',
+  chart_number: null,
 }
 
 export default async function TerminiPage() {
@@ -59,7 +61,8 @@ export default async function TerminiPage() {
           first_name,
           last_name,
           phone,
-          category
+          category,
+          chart_number
         )
       `,
       (q) => q.gte('appointment_datetime', startRange.toISOString()).order('appointment_datetime', { ascending: true })
@@ -67,7 +70,7 @@ export default async function TerminiPage() {
     fetchAllParallel<any>(
       supabase,
       'patients',
-      'id, first_name, last_name, phone, category',
+      'id, first_name, last_name, phone, category, chart_number',
       (q) => q.order('first_name', { ascending: true })
     ),
   ])
@@ -87,6 +90,7 @@ export default async function TerminiPage() {
           last_name: (p as Record<string, unknown>).last_name ? String((p as Record<string, unknown>).last_name) : null,
           phone: String((p as Record<string, unknown>).phone || '/'),
           category: String((p as Record<string, unknown>).category || 'regular'),
+          chart_number: (p as Record<string, unknown>).chart_number ? String((p as Record<string, unknown>).chart_number) : null,
         }
       }
     }

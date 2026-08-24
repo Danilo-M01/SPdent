@@ -38,7 +38,7 @@ export default function GlobalSearch({ query, onQueryChange, totalCount }: Globa
           type="search"
           value={localQuery}
           onChange={e => setLocalQuery(e.target.value)}
-          placeholder="Pretraži po imenu ili broju telefona..."
+          placeholder="Pretraži po imenu, telefonu ili broju kartona..."
           className="w-full bg-white border border-[#E2E8F0] hover:border-slate-300 focus:border-[#0284C7] focus:ring-2 focus:ring-sky-500/10 rounded-xl pl-10 pr-10 py-3 text-sm text-[#0F172A] placeholder-slate-400 outline-none transition-all duration-200"
         />
         {localQuery && (

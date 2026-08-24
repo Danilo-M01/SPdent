@@ -16,6 +16,7 @@ const headerMap: Record<string, string> = {
   first_name: 'Ime',
   last_name: 'Prezime',
   phone: 'Telefon',
+  chart_number: 'Broj kartona',
   email: 'Email',
   parent_name: 'Ime roditelja',
   medical_alerts: 'Alergije/Upozorenja',
@@ -202,6 +203,7 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
       medical_alerts: null,
       notes: notesParts.length > 0 ? notesParts.join(' | ') : null,
       category: 'regular',
+      chart_number: null,
       appointment_date: null,
       doctor_name: null,
       _generatedPhone,
@@ -341,7 +343,15 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
     else if (rc.includes('protez') || rc.includes('protet')) category = 'proteza'
   }
 
-  // ── 7. Termin / Sledeći pregled i Izabrani doktor ─────────────────────────
+  // ── 7. Broj kartona ──────────────────────────────────────────────────────
+  const chartNumber = find([
+    'brojkartona', 'brkartona', 'karton', 'brkarton', 'kartonbr', 'kartonbroj',
+    'brojkartrona', 'brkartrona', 'kartron', 'brkartron',
+    'chart', 'chartnumber', 'chartno', 'chartnum',
+    'dosije', 'brojdosijea', 'brdosijea', 'maticnikarton', 'brkart'
+  ])
+
+  // ── 8. Termin / Sledeći pregled i Izabrani doktor ─────────────────────────
   const rawDateVal = find([
     'sledecitermin', 'sledećitermin', 'sledećipregled', 'sledecipregled', 'termin', 'datum', 'pregled', 'vreme', 
     'datumtermina', 'datumvreme', 'datumivreme', 'sledećidolazak', 'sledecidolazak',
@@ -355,7 +365,7 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
   ])
   const mappedDoctorName = mapDoctorName(rawDoctorVal)
 
-  // ── 8. Napomene i specijalna polja → notes ────────────────────────────────
+  // ── 9. Napomene i specijalna polja → notes ────────────────────────────────
   const notesParts: string[] = []
 
   const napomena = find([
@@ -432,6 +442,7 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
     medical_alerts: medicalAlerts ? String(medicalAlerts).trim() : null,
     notes: notes ? notes.trim() : null,
     category: category,
+    chart_number: chartNumber ? String(chartNumber).trim() : null,
     appointment_date: appointmentDate,
     doctor_name: mappedDoctorName,
     _generatedPhone,

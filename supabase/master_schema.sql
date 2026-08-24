@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS public.patients (
   takes_anticoagulants BOOLEAN       NOT NULL DEFAULT false,
   penicillin_allergy   BOOLEAN       NOT NULL DEFAULT false,
   consent_signed       BOOLEAN       NOT NULL DEFAULT false,
+  chart_number         TEXT,
   created_at           TIMESTAMPTZ   NOT NULL DEFAULT now(),
   updated_at           TIMESTAMPTZ   NOT NULL DEFAULT now()
 );

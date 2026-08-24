@@ -134,6 +134,7 @@ export async function addPatient(
     const medicalAlerts = sanitizeText(formData.get('medical_alerts'))
     const notes = sanitizeText(formData.get('notes'))
     const category = sanitizeText(formData.get('category')) || 'regular'
+    const chartNumber = sanitizeText(formData.get('chart_number'))
 
     // Systemic anamnesis booleans — checkboxes send 'true' string when checked
     const hasHypertension    = formData.get('has_hypertension') === 'true'
@@ -162,6 +163,7 @@ export async function addPatient(
       medical_alerts: medicalAlerts || null,
       notes: notes || null,
       category: safeCategory,
+      chart_number: chartNumber || null,
       has_hypertension: hasHypertension,
       has_diabetes: hasDiabetes,
       takes_anticoagulants: takesAnticoagulants,
@@ -223,6 +225,7 @@ export async function updatePatient(
       medical_alerts: sanitizeText(formData.get('medical_alerts')) || null,
       notes: sanitizeText(formData.get('notes')) || null,
       category: validCategories.includes(rawCategory) ? rawCategory : 'regular',
+      chart_number: sanitizeText(formData.get('chart_number')) || null,
       has_hypertension: formData.get('has_hypertension') === 'true',
       has_diabetes: formData.get('has_diabetes') === 'true',
       takes_anticoagulants: formData.get('takes_anticoagulants') === 'true',
@@ -454,6 +457,7 @@ export interface ImportPatient {
   medical_alerts?: string | null
   notes?: string | null
   category?: string
+  chart_number?: string | null
   appointment_date?: string | null
   doctor_name?: string | null
 }
@@ -569,6 +573,7 @@ export async function bulkImportPatients(patients: ImportPatient[]): Promise<Act
         medical_alerts: sanitizeText(p.medical_alerts) || null,
         notes: notesVal,
         category: p.category || 'regular',
+        chart_number: sanitizeText(p.chart_number) || null,
       }
     })
 
