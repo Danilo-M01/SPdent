@@ -637,6 +637,7 @@ export default function TerminiClient({
           first_name: patientSearch,
           last_name: '',
           phone: newPhone || '/',
+          chart_number: newChartNumber.trim() || null,
           category: 'regular'
         }
 
@@ -1107,6 +1108,14 @@ export default function TerminiClient({
                               <p className="text-slate-800 text-[11px] font-black leading-snug break-words">
                                 {appt.patient?.first_name} {appt.patient?.last_name || ''}
                               </p>
+                              {appt.patient?.chart_number && (
+                                <div className="mt-0.5">
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-sky-700 bg-sky-50 border border-sky-200/80 px-1.5 py-0.5 rounded-md leading-none">
+                                    <FileText size={8.5} className="text-sky-600 shrink-0" />
+                                    Karton: {appt.patient.chart_number}
+                                  </span>
+                                </div>
+                              )}
                               {appt.treatment_today && (
                                 <p className="text-slate-650 text-[9.5px] leading-tight font-medium border-t border-slate-200 pt-0.5 mt-0.5 break-words">
                                   🦷 {appt.treatment_today}
@@ -1215,6 +1224,14 @@ export default function TerminiClient({
                                 {appt.doctor_name?.split(' ')?.[1] || 'Zubar'}
                               </span>
                             </div>
+                            {appt.patient?.chart_number && (
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <span className="inline-flex items-center gap-1 text-[9px] font-bold text-sky-700 bg-sky-50 border border-sky-200/80 px-1.5 py-0.5 rounded-md leading-none">
+                                  <FileText size={8.5} className="text-sky-600 shrink-0" />
+                                  Karton: {appt.patient.chart_number}
+                                </span>
+                              </div>
+                            )}
                             {appt.treatment_today && (
                               <div className="text-[9.5px] text-slate-500 font-medium w-full border-t border-slate-200 pt-0.5 mt-0.5 break-words leading-tight">
                                 🦷 {appt.treatment_today}
