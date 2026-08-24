@@ -1353,7 +1353,6 @@ export default function TerminiClient({
                                   </button>
                                 </div>
                               </div>
-                            </div>
                           )
                         })}
                       </div>
