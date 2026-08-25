@@ -4,6 +4,7 @@ import ProblemSolution from "@/components/ProblemSolution";
 import Services from "@/components/Services";
 import BeforeAfter from "@/components/BeforeAfter";
 import Testimonials from "@/components/Testimonials";
+import AboutUs from "@/components/AboutUs";
 import FAQ from "@/components/FAQ";
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
@@ -19,7 +20,8 @@ export default function Home() {
         <div id="rezultati" className="order-1 lg:order-2"><BeforeAfter /></div>
       </div>
       <div id="usluge"><Services /></div>
-      <div id="o nama"><Testimonials /></div>
+      <Testimonials />
+      <div id="o nama"><AboutUs /></div>
       <FAQ />
       <Contact />
       <Footer />
