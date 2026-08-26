@@ -14,7 +14,7 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: "SP DENT | Premium Stomatološka Ordinacija Beograd",
+  title: "SP DENT",
   description: "Moderna dentalna ordinacija u Beogradu. Spoj funkcionalne stomatologije i premium iskustva pacijenta kroz tehnologiju, estetiku i bezbolan pristup.",
   keywords: ["stomatolog Beograd", "zubar Beograd", "estetska stomatologija", "bezbolno vađenje zuba", "SP DENT"],
 };
