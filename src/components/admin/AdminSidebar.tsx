@@ -71,13 +71,13 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
     <>
       {/* Mobile Header zaglavlje (prikazuje se samo na ekranima manjim od lg) */}
       <div className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-slate-200 z-30 flex items-center justify-between px-6 lg:hidden">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <div className="relative w-8 h-8">
             <Image
-              src="/logo-spdent.png"
+              src="/logo-icon.png"
               alt="SP DENT Logo"
               fill
-              className="object-contain brightness-0"
+              className="object-contain"
               priority
             />
           </div>
@@ -116,12 +116,12 @@ export default function AdminSidebar({ userEmail }: AdminSidebarProps) {
       >
         {/* Brand i logo */}
         <div className="px-6 py-6 border-b border-slate-200 flex items-center justify-between lg:justify-center">
-          <div className="relative w-32 h-10 lg:w-36 lg:h-12">
+          <div className="relative w-36 h-11 lg:w-40 lg:h-12">
             <Image
               src="/logo-spdent.png"
               alt="SP DENT Logo"
               fill
-              className="object-contain brightness-0"
+              className="object-contain"
               priority
             />
           </div>

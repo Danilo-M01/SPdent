@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
 import { motion, useScroll, useMotionValueEvent, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
@@ -25,16 +26,16 @@ export default function Navbar() {
       }`}
     >
       <div className="max-w-7xl mx-auto px-6 lg:px-8 flex items-center justify-between">
-        <div className="flex items-center">
+        <Link href="/" className="flex items-center">
           <Image
-            src="/logo-spdent.png"
+            src="/logo-spdent-white.png"
             alt="SP DENT"
-            width={60}
-            height={24}
-            className="object-contain brightness-0 invert"
+            width={160}
+            height={50}
+            className="h-9 md:h-10 w-auto object-contain hover:opacity-90 transition-opacity"
             priority
           />
-        </div>
+        </Link>
 
         {/* Desktop Nav */}
         <nav className="hidden md:flex items-center gap-8">

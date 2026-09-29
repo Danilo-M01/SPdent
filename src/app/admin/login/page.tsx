@@ -37,9 +37,9 @@ export default function AdminLoginPage() {
           <Image
             src="/logo-spdent.png"
             alt="SP DENT"
-            width={240}
-            height={96}
-            className="object-contain brightness-0 transition-transform hover:scale-105 duration-300"
+            width={220}
+            height={70}
+            className="h-14 w-auto object-contain transition-transform hover:scale-105 duration-300"
             priority
           />
         </div>

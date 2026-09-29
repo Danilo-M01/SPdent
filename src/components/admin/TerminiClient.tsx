@@ -772,9 +772,9 @@ export default function TerminiClient({
           >
             <div className="relative w-8 h-8 flex items-center justify-center">
               <img
-                src="/logo-spdent.png"
+                src="/logo-icon.png"
                 alt="SP DENT Logo"
-                className="w-full h-full object-contain brightness-0 group-hover:scale-105 transition-transform"
+                className="w-full h-full object-contain group-hover:scale-105 transition-transform"
               />
             </div>
             <span className="text-slate-900 font-black text-lg tracking-wide hidden sm:inline-block">SP DENT</span>

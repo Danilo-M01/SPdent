@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Footer() {
   return (
@@ -6,8 +7,14 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
           <div className="col-span-1 md:col-span-2">
-            <div className="text-2xl font-heading font-bold text-white tracking-tighter mb-6">
-              SP<span className="text-accent">DENT</span>
+            <div className="mb-6">
+              <Image
+                src="/logo-spdent-white.png"
+                alt="SP DENT"
+                width={160}
+                height={50}
+                className="h-10 w-auto object-contain"
+              />
             </div>
             <p className="text-secondary/70 max-w-sm">
               Moderna stomatološka ordinacija u srcu Beograda. Naša misija je da vratimo savršen osmeh na vaše lice, bez bola i bez stresa.
