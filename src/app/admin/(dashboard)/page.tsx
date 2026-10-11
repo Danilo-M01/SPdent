@@ -111,7 +111,7 @@ export default async function AdminDashboardPage({
     fetchAllParallel<Patient>(
       supabase,
       'patients',
-      'id, first_name, last_name, phone, email, parent_name, medical_alerts, category, chart_number, created_at, has_hypertension, has_diabetes, takes_anticoagulants, penicillin_allergy, consent_signed',
+      'id, first_name, last_name, phone, email, parent_name, medical_alerts, notes, category, chart_number, created_at, updated_at, has_hypertension, has_diabetes, takes_anticoagulants, penicillin_allergy, consent_signed',
       (q) => {
         let query = q.order('created_at', { ascending: false })
         if (category && ['regular', 'implant', 'proteza'].includes(category)) {

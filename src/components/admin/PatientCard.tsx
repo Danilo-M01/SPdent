@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import { motion } from 'framer-motion'
 import type { Patient } from '@/app/admin/(dashboard)/page'
 import {
@@ -20,7 +21,7 @@ interface PatientCardProps {
   index: number
 }
 
-export default function PatientCard({ patient, index }: PatientCardProps) {
+function PatientCardComponent({ patient, index }: PatientCardProps) {
   const hasAlerts = Boolean(patient.medical_alerts)
   const catBadge = CATEGORY_BADGES[patient.category ?? 'regular']
 
@@ -144,3 +145,6 @@ export default function PatientCard({ patient, index }: PatientCardProps) {
     </motion.div>
   )
 }
+
+const PatientCard = memo(PatientCardComponent)
+export default PatientCard

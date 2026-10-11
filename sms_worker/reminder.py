@@ -30,14 +30,40 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 
 # ---------------------------------------------------------------------------
+# Compatibility fix for Supabase sb_secret_ keys
+# ---------------------------------------------------------------------------
+try:
+    import supabase._sync.client as _sc
+    _orig_client_init = _sc.SyncClient.__init__
+
+    def _safe_client_init(self, supabase_url: str, supabase_key: str, options=None):
+        import re
+        _orig_match = re.match
+        def _patched_match(pattern, string, *args, **kwargs):
+            if string == supabase_key and (string.startswith("sb_secret_") or string.startswith("sb_publishable_")):
+                return True
+            return _orig_match(pattern, string, *args, **kwargs)
+        re.match = _patched_match
+        try:
+            _orig_client_init(self, supabase_url, supabase_key, options)
+        finally:
+            re.match = _orig_match
+
+    _sc.SyncClient.__init__ = _safe_client_init
+except Exception:
+    pass
+
+# ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 load_dotenv()
 
+APP_DIR                   = os.path.dirname(os.path.abspath(__file__))
 SUPABASE_URL              = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 SMS_GATEWAY_URL           = os.getenv("SMS_GATEWAY_URL", "http://192.168.1.15:8080/send-sms")
 SMS_GATEWAY_TOKEN         = os.getenv("SMS_GATEWAY_TOKEN", "")
+ADMIN_TEST_PHONE          = os.getenv("ADMIN_TEST_PHONE", "0604101012")
 
 BELGRADE_TZ       = pytz.timezone("Europe/Belgrade")
 UTC_TZ            = pytz.utc
@@ -262,6 +288,43 @@ def process_appointments(supabase: Client, appointments: list, group_label: str)
     return sent_count, failed_count, skipped_count
 
 
+def send_admin_evening_verification(supabase: Client, today_date) -> None:
+    """
+    Šalje kontrolni SMS na broj vlasnika (0604101012) tokom 2. grupe (18:00–21:00)
+    jednom dnevno, kako bi vlasnik imao 100% potvrdu da program na računaru ordinacije
+    radi stabilno i uspešno pokreće drugu grupu.
+    """
+    if not ADMIN_TEST_PHONE:
+        return
+
+    marker_file = os.path.join(APP_DIR, ".admin_test_sent")
+    today_str = str(today_date)
+
+    if os.path.exists(marker_file):
+        try:
+            with open(marker_file, "r", encoding="utf-8") as f:
+                last_sent = f.read().strip()
+            if last_sent == today_str:
+                return  # Već poslat kontrolni SMS za danas
+        except Exception:
+            pass
+
+    log.info(f"📲 Slanje kontrolnog SMS-a na broj vlasnika: {ADMIN_TEST_PHONE} (2. grupa - popodne)...")
+    admin_msg = "Imate zakazan termin sutra u 18:00 u SP dent."
+    session = get_robust_session()
+    ok = send_sms(session, ADMIN_TEST_PHONE, admin_msg)
+    if ok:
+        log.info(f"  ✅ Kontrolni SMS uspešno poslat na {ADMIN_TEST_PHONE} (potvrda 2. grupe)")
+        log_to_supabase(supabase, "INFO", f"Kontrolni SMS poslat na {ADMIN_TEST_PHONE} (2. grupa)", "sms_worker")
+        try:
+            with open(marker_file, "w", encoding="utf-8") as f:
+                f.write(today_str)
+        except Exception as exc:
+            log.warning(f"Could not write admin test marker: {exc}")
+    else:
+        log.warning(f"  ⚠️ Kontrolni SMS nije uspeo da se pošalje na {ADMIN_TEST_PHONE}")
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -358,6 +421,10 @@ def main() -> None:
                 else:
                     elapsed = time.monotonic() - run_start
                     log.info(f"No appointments to process. (Took {elapsed:.2f}s)")
+
+                # Kontrolna provera: Ako je aktivan prozor 2. grupe (18:00–21:00), šalje se sigurnosni SMS na broj vlasnika (jednom dnevno)
+                if in_evening_window or bypass_window:
+                    send_admin_evening_verification(supabase, now_belgrade.date())
             else:
                 log.info(f"Outside all sending windows ({now_belgrade.strftime('%H:%M')}). Next windows: 09-15h or 18-21h.")
 

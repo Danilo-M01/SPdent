@@ -44,3 +44,11 @@ next-env.d.ts
 temp_restore/
 scratch/
 test_6800_pacijenata.*
+*.log
+__pycache__/
+*.spec
+*.zip
+*.lnk
+sms_worker/build/
+sms_worker/dist/
+sms_worker/__pycache__/

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import { motion } from 'framer-motion'
 import {
   X,
@@ -27,6 +27,19 @@ import { createClient } from '@/lib/supabase/client'
 // Lazy-load heavy components (chart + uploader) for faster initial modal open
 const DentalChart = lazy(() => import('./DentalChart'))
 const XRayUploader = lazy(() => import('./XRayUploader'))
+
+// Module-level formatters — created ONCE, reused for every call (Intl objects are expensive)
+const belgradeDateFormatter = new Intl.DateTimeFormat('sr-RS', {
+  timeZone: 'Europe/Belgrade',
+  dateStyle: 'medium',
+  timeStyle: 'short',
+})
+const svSEFormatter = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: 'Europe/Belgrade',
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit',
+  hour12: false,
+})
 
 interface PatientDossierModalProps {
   patient: Patient
@@ -173,13 +186,13 @@ export default function PatientDossierModal({ patient: initialPatient, onClose, 
   const [selectedDoctor, setSelectedDoctor] = useState<string>('dr Slaviša Petković')
   const [selectedServices, setSelectedServices] = useState<string[]>([])
 
-  // Systemic anamnesis alerts
-  const systemicAlerts: string[] = [
+  // Systemic anamnesis alerts — memoized to avoid recompute on every render
+  const systemicAlerts = useMemo(() => [
     patient.has_hypertension ? '🫀 Hipertenzija' : '',
     patient.has_diabetes ? '🩸 Dijabetes' : '',
     patient.takes_anticoagulants ? '💊 Antikoagulansi' : '',
     patient.penicillin_allergy ? '⚠️ Alergija na Penicilin' : '',
-  ].filter(Boolean)
+  ].filter(Boolean), [patient.has_hypertension, patient.has_diabetes, patient.takes_anticoagulants, patient.penicillin_allergy])
 
   useEffect(() => {
     const fetchReports = async () => {
@@ -283,23 +296,12 @@ export default function PatientDossierModal({ patient: initialPatient, onClose, 
     setIsSubmitting(false)
   }
 
-  const formatBelgradeDate = (iso: string) => {
-    return new Intl.DateTimeFormat('sr-RS', {
-      timeZone: 'Europe/Belgrade',
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(iso))
-  }
+  // Use module-level cached formatters — no object creation on every call
+  const formatBelgradeDate = (iso: string) =>
+    belgradeDateFormatter.format(new Date(iso))
 
   const toLocalDatetimeString = (isoString: string): string => {
-    const d = new Date(isoString)
-    const formatter = new Intl.DateTimeFormat('sv-SE', {
-      timeZone: 'Europe/Belgrade',
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit',
-      hour12: false
-    })
-    const formatted = formatter.format(d)
+    const formatted = svSEFormatter.format(new Date(isoString))
     return formatted.replace(' ', 'T')
   }
 

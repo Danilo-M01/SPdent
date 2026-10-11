@@ -45,6 +45,25 @@ const colorMap: Record<string, string> = {
 
 type SortBy = 'appointment' | 'alphabetical' | 'newest' | 'recently_updated'
 
+function normalizeSearch(str: string): string {
+  if (!str) return ''
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'dj')
+    .replace(/љ/g, 'lj')
+    .replace(/њ/g, 'nj')
+    .replace(/џ/g, 'dz')
+    .replace(/а/g, 'a').replace(/б/g, 'b').replace(/в/g, 'v').replace(/г/g, 'g')
+    .replace(/д/g, 'd').replace(/ђ/g, 'dj').replace(/е/g, 'e').replace(/ж/g, 'z')
+    .replace(/з/g, 'z').replace(/и/g, 'i').replace(/ј/g, 'j').replace(/к/g, 'k')
+    .replace(/л/g, 'l').replace(/м/g, 'm').replace(/н/g, 'n').replace(/о/g, 'o')
+    .replace(/п/g, 'p').replace(/р/g, 'r').replace(/с/g, 's').replace(/т/g, 't')
+    .replace(/ћ/g, 'c').replace(/у/g, 'u').replace(/ф/g, 'f').replace(/х/g, 'h')
+    .replace(/ц/g, 'c').replace(/ч/g, 'c').replace(/ш/g, 's')
+}
+
 export default function AdminDashboardClient({
   initialPatients,
   stats,
@@ -58,11 +77,23 @@ export default function AdminDashboardClient({
   const [smsStatus, setSmsStatus] = useState<'checking' | 'online' | 'offline'>('checking')
   const [patients, setPatients] = useState<Patient[]>(initialPatients)
   const [localStats, setLocalStats] = useState(stats)
- 
+  const [visibleCount, setVisibleCount] = useState(48)
+
   const handleQueryChange = useCallback((val: string) => {
     setQuery(val)
     setVisibleCount(48)
   }, [])
+
+  // Pre-index patients for search — only recomputed when patients list changes, NEVER on keystroke
+  const searchablePatients = useMemo(() => {
+    return patients.map(p => ({
+      patient: p,
+      searchKey: normalizeSearch(`${p.first_name} ${p.last_name ?? ''} ${p.parent_name ?? ''} ${p.chart_number ?? ''}`),
+      phoneDigits: p.phone.replace(/[^0-9]/g, ''),
+      rawPhone: p.phone.toLowerCase(),
+      chartNumberLc: (p.chart_number ?? '').toLowerCase(),
+    }))
+  }, [patients])
 
   useEffect(() => {
     setPatients(initialPatients)
@@ -110,22 +141,31 @@ export default function AdminDashboardClient({
   }, [])
 
   const filteredPatients = useMemo(() => {
+    const trimmed = query.trim()
     let result = patients
 
-    if (query.trim()) {
-      const q = query.toLowerCase().trim()
-      result = result.filter(p => {
-        const fullName = `${p.first_name} ${p.last_name ?? ''}`.toLowerCase()
-        const chartMatch = p.chart_number ? p.chart_number.toLowerCase().includes(q) : false
-        return fullName.includes(q) || p.phone.includes(q) || chartMatch
-      })
+    if (trimmed) {
+      const qNorm = normalizeSearch(trimmed)
+      const qDigits = trimmed.replace(/[^0-9]/g, '')
+      const qRaw = trimmed.toLowerCase()
+
+      result = searchablePatients
+        .filter(item => {
+          if (item.searchKey.includes(qNorm)) return true
+          if (item.chartNumberLc.includes(qRaw)) return true
+          if (item.rawPhone.includes(qRaw)) return true
+          if (qDigits.length >= 3 && item.phoneDigits.includes(qDigits)) return true
+          return false
+        })
+        .map(item => item.patient)
     }
 
-    return result.sort((a, b) => {
+    // Sort: ISO date strings are lexicographically sortable — no new Date() needed
+    return [...result].sort((a, b) => {
       switch (sortBy) {
         case 'appointment': {
           if (a.next_appointment && b.next_appointment) {
-            return new Date(a.next_appointment).getTime() - new Date(b.next_appointment).getTime()
+            return a.next_appointment < b.next_appointment ? -1 : a.next_appointment > b.next_appointment ? 1 : 0
           }
           if (a.next_appointment) return -1
           if (b.next_appointment) return 1
@@ -134,19 +174,18 @@ export default function AdminDashboardClient({
         case 'alphabetical':
           return a.first_name.localeCompare(b.first_name, 'sr-RS')
         case 'newest':
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          // created_at is ISO — string comparison works perfectly
+          return b.created_at < a.created_at ? -1 : b.created_at > a.created_at ? 1 : 0
         case 'recently_updated': {
-          const aTime = a.latest_report_at ? new Date(a.latest_report_at).getTime() : 0
-          const bTime = b.latest_report_at ? new Date(b.latest_report_at).getTime() : 0
-          return bTime - aTime
+          const aT = a.latest_report_at ?? ''
+          const bT = b.latest_report_at ?? ''
+          return bT < aT ? -1 : bT > aT ? 1 : 0
         }
         default:
           return 0
       }
     })
-  }, [query, sortBy, patients])
-
-  const [visibleCount, setVisibleCount] = useState(48)
+  }, [query, sortBy, patients, searchablePatients])
 
   const renderedPatients = useMemo(() => {
     return filteredPatients.slice(0, visibleCount)

@@ -61,7 +61,7 @@ function parseImportedDate(val: unknown): string | null {
   if (!str) return null
 
   // Serbian format: "15.06.2026. 10:00" or "15.06.2026. u 10:00" or "15.06.2026 10:00" or "15.6.2026. 10:00"
-  const serbianMatch = str.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\.?(?:\s+(?:u\s+)?(\d{1,2})[:.](:\d{2}))?/i)
+  const serbianMatch = str.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\.?(?:\s+(?:u\s+)?(\d{1,2})[:.](\d{2}))?/i)
   if (serbianMatch) {
     const day = parseInt(serbianMatch[1], 10)
     const month = parseInt(serbianMatch[2], 10)
@@ -73,7 +73,7 @@ function parseImportedDate(val: unknown): string | null {
   }
 
   // Slash format: "15/06/2026 10:00" or "15/06/2026"
-  const slashMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2})[:.](:\d{2}))?/)
+  const slashMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2})[:.](\d{2}))?/)
   if (slashMatch) {
     const day = parseInt(slashMatch[1], 10)
     const month = parseInt(slashMatch[2], 10)
@@ -85,7 +85,7 @@ function parseImportedDate(val: unknown): string | null {
   }
 
   // ISO format: "2026-06-15 10:00" or "2026-06-15T10:00" or "2026-06-15"
-  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})(?:T|\s+)(\d{2})[:.](:\d{2})/)
+  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})(?:T|\s+)(\d{2})[:.](\d{2})/)
   if (isoMatch) {
     return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}T${isoMatch[4]}:${isoMatch[5]}`
   }
@@ -348,7 +348,9 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
     'brojkartona', 'brkartona', 'karton', 'brkarton', 'kartonbr', 'kartonbroj',
     'brojkartrona', 'brkartrona', 'kartron', 'brkartron',
     'chart', 'chartnumber', 'chartno', 'chartnum',
-    'dosije', 'brojdosijea', 'brdosijea', 'maticnikarton', 'brkart'
+    'dosije', 'brojdosijea', 'brdosijea', 'maticnikarton', 'matičnikarton', 'brkart',
+    'zdravstvenikarton', 'brojzdravstvenogkartona', 'kartonski', 'kartonskibroj',
+    'бројкартона', 'бркартона', 'картон', 'картонбр', 'досије', 'матичникартон'
   ])
 
   // ── 8. Termin / Sledeći pregled i Izabrani doktor ─────────────────────────
