@@ -92,6 +92,7 @@ export default function AdminDashboardClient({
       phoneDigits: p.phone.replace(/[^0-9]/g, ''),
       rawPhone: p.phone.toLowerCase(),
       chartNumberLc: (p.chart_number ?? '').toLowerCase(),
+      chartClean: (p.chart_number ?? '').toLowerCase().replace(/[^a-z0-9]/gi, ''),
     }))
   }, [patients])
 
@@ -148,11 +149,13 @@ export default function AdminDashboardClient({
       const qNorm = normalizeSearch(trimmed)
       const qDigits = trimmed.replace(/[^0-9]/g, '')
       const qRaw = trimmed.toLowerCase()
+      const qClean = qRaw.replace(/[^a-z0-9]/gi, '')
 
       result = searchablePatients
         .filter(item => {
           if (item.searchKey.includes(qNorm)) return true
           if (item.chartNumberLc.includes(qRaw)) return true
+          if (qClean && item.chartClean.includes(qClean)) return true
           if (item.rawPhone.includes(qRaw)) return true
           if (qDigits.length >= 3 && item.phoneDigits.includes(qDigits)) return true
           return false

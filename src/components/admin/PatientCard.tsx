@@ -39,9 +39,17 @@ function PatientCardComponent({ patient, index }: PatientCardProps) {
       {/* Name + badges row */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <h3 className="text-[#0F172A] font-semibold text-base leading-tight truncate">
-            {patient.first_name} {patient.last_name ?? ''}
-          </h3>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-[#0F172A] font-semibold text-base leading-tight truncate">
+              {patient.first_name} {patient.last_name ?? ''}
+            </h3>
+            {patient.chart_number && (
+              <span className="inline-flex items-center gap-1 bg-sky-50 border border-sky-200 text-[#0284C7] text-xs font-bold px-2 py-0.5 rounded-lg shrink-0">
+                <FileText size={11} />
+                Karton: {patient.chart_number}
+              </span>
+            )}
+          </div>
           {patient.parent_name && (
             <p className="text-slate-500 text-xs mt-0.5 truncate">
               Roditelj: {patient.parent_name}

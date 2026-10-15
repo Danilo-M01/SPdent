@@ -10,221 +10,303 @@ import {
 } from '@/lib/sanitize'
 
 // ---------------------------------------------------------------------------
+// Deterministic key generator for patients without phone numbers.
+// Ensures that re-importing the same Excel file NEVER creates duplicates!
+// ---------------------------------------------------------------------------
+function generateDeterministicNoPhone(
+  firstName: string,
+  lastName?: string | null,
+  chartNumber?: string | null,
+  parentName?: string | null
+): string {
+  const base = `${firstName} ${lastName ?? ''} ${chartNumber ?? ''} ${parentName ?? ''}`
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]/g, '')
+  let hash = 0
+  for (let i = 0; i < base.length; i++) {
+    hash = ((hash << 5) - hash) + base.charCodeAt(i)
+    hash |= 0
+  }
+  const hex = Math.abs(hash).toString(36)
+  const slug = base.substring(0, 10) || 'anon'
+  return `/-no-phone-${slug}-${hex}`
+}
+
+function mergeNotes(newNotes?: string | null, existingNotes?: string | null): string | null {
+  const n = (newNotes || '').trim()
+  const e = (existingNotes || '').trim()
+  if (!n) return e || null
+  if (!e) return n || null
+  if (e.includes(n)) return e
+  if (n.includes(e)) return n
+  return `${n} | ${e}`
+}
+
+// ---------------------------------------------------------------------------
 // POST /api/bulk-import
-// Accepts a JSON body: { patients: ImportPatient[], existingPhones?: string[] }
-// Returns: { success, inserted, skipped, errors }
+// Accepts a JSON body: { patients: ImportPatient[] }
+// Returns: { success, inserted, updated, skipped, appointmentsInserted, errors }
 // ---------------------------------------------------------------------------
 
 export async function POST(request: NextRequest) {
   try {
     // 1. Auth check
-    const bypassKey = request.headers.get('x-bypass-auth')
-    const isLocalDev = process.env.NODE_ENV === 'development'
-    const isBypassed = isLocalDev && bypassKey === 'bulk-import-bypass-secret'
-
-    let supabase
-    if (isBypassed) {
-      // Use service role key to bypass RLS for development testing
-      const { createClient: createDirectClient } = await import('@supabase/supabase-js')
-      supabase = createDirectClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Neautorizovan pristup.' },
+        { status: 401 }
       )
-    } else {
-      supabase = await createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        return NextResponse.json(
-          { success: false, error: 'Neautorizovan pristup.' },
-          { status: 401 }
-        )
-      }
     }
 
     const body = await request.json()
     const patients: any[] = body.patients || []
 
     if (patients.length === 0) {
-      return NextResponse.json({ success: true, inserted: 0, skipped: 0, errors: [] })
+      return NextResponse.json({ success: true, inserted: 0, updated: 0, skipped: 0, appointmentsInserted: 0, errors: [] })
     }
 
-    // 2. Format patients for DB
-    const formattedPatients = patients.map((p: any) => {
-      let phoneVal = sanitizePhone(p.phone)
-      const fName = sanitizeText(p.first_name) || 'Nepoznato'
+    const SUB_BATCH = 50
+    let insertedCount = 0
+    let updatedCount = 0
+    const errors: string[] = []
 
-      // Generate unique no-phone ID if missing
-      if (!phoneVal || phoneVal === '/' || phoneVal.startsWith('/')) {
-        // Use client-provided generated phone if available
-        if (p._generatedPhone) {
-          phoneVal = p._generatedPhone
-        } else {
-          phoneVal = `/-no-phone-${Math.random().toString(36).substring(2, 10)}`
-        }
+    // 2. Format & normalize all patients with deterministic identifiers
+    const formattedPatients = patients.map((p: any) => {
+      const fName = sanitizeText(p.first_name) || 'Nepoznato'
+      const lName = sanitizeText(p.last_name) || null
+      const rawChart = sanitizeText(p.chart_number)
+      const chartNum = rawChart ? rawChart.trim() : null
+      const parent = sanitizeText(p.parent_name) || null
+
+      let phoneVal = sanitizePhone(p.phone)
+      const hasRealPhone = phoneVal && phoneVal !== '/' && !phoneVal.startsWith('/')
+
+      if (!hasRealPhone) {
+        phoneVal = generateDeterministicNoPhone(fName, lName, chartNum, parent)
       }
 
       const validCategories = ['regular', 'implant', 'proteza']
 
       return {
         first_name: fName,
-        last_name: sanitizeText(p.last_name) || null,
+        last_name: lName,
         phone: phoneVal,
+        hasRealPhone,
         email: sanitizeEmail(p.email) || null,
-        parent_name: sanitizeText(p.parent_name) || null,
+        parent_name: parent,
         medical_alerts: sanitizeText(p.medical_alerts) || null,
         notes: sanitizeText(p.notes) || null,
         category: validCategories.includes(p.category) ? p.category : 'regular',
-        chart_number: sanitizeText(p.chart_number) || null,
+        chart_number: chartNum,
+        appointment_date: p.appointment_date || null,
+        doctor_name: sanitizeText(p.doctor_name) || null,
       }
     })
 
-    // 3. Deduplicate within this chunk by phone (only for patients WITH a real phone).
-    //    Patients without a phone are NEVER deduped — different people CAN share a name.
+    // 3. Deduplicate within the incoming request payload itself
     const dedupMap = new Map<string, typeof formattedPatients[0]>()
-    const finalPatients: typeof formattedPatients = []
-    formattedPatients.forEach(p => {
-      const hasRealPhone = p.phone && p.phone !== '/' && !p.phone.startsWith('/-no-phone-')
-      if (hasRealPhone) {
-        if (!dedupMap.has(p.phone)) {
-          dedupMap.set(p.phone, p)
-          finalPatients.push(p)
+    const uniquePatients: typeof formattedPatients = []
+
+    for (const p of formattedPatients) {
+      // Primary dedup key: chart_number if present, else phone
+      const key = p.chart_number
+        ? `chart:${p.chart_number.toLowerCase().trim()}`
+        : `phone:${p.phone}`
+
+      if (dedupMap.has(key)) {
+        // Merge with previous entry in this same batch
+        const prev = dedupMap.get(key)!
+        prev.notes = mergeNotes(p.notes, prev.notes)
+        if (!prev.email && p.email) prev.email = p.email
+        if (!prev.parent_name && p.parent_name) prev.parent_name = p.parent_name
+        if (!prev.medical_alerts && p.medical_alerts) prev.medical_alerts = p.medical_alerts
+        if (p.category !== 'regular') prev.category = p.category
+        if (!prev.appointment_date && p.appointment_date) {
+          prev.appointment_date = p.appointment_date
+          prev.doctor_name = p.doctor_name
         }
-      } else {
-        // No phone — always keep
-        finalPatients.push(p)
+        continue
       }
-    })
 
-    // 4. Smart merge upsert — fetch existing patients first to avoid overwriting non-null fields with null
-    // This ensures chart_number, email, notes etc. are preserved if the new import row doesn't have them
-    const SUB_BATCH = 100
-    let insertedCount = 0
-    const errors: string[] = []
-
-    // Fetch existing patients by phone to enable smart merge
-    const realPhones = finalPatients
-      .filter(p => p.phone && !p.phone.startsWith('/-no-phone-') && p.phone !== '/')
-      .map(p => p.phone)
-
-    const existingByPhone = new Map<string, any>()
-    if (realPhones.length > 0) {
-      for (let i = 0; i < realPhones.length; i += SUB_BATCH) {
-        const phoneBatch = realPhones.slice(i, i + SUB_BATCH)
-        const { data: existing } = await supabase
-          .from('patients')
-          .select('id, phone, chart_number, email, notes, parent_name, medical_alerts, category')
-          .in('phone', phoneBatch)
-        if (existing) {
-          existing.forEach((p: any) => existingByPhone.set(p.phone, p))
-        }
-      }
+      dedupMap.set(key, p)
+      uniquePatients.push(p)
     }
 
-    // Also fetch existing patients by chart_number if present
-    const chartNumbers = finalPatients
-      .map(p => p.chart_number)
-      .filter((cn): cn is string => Boolean(cn))
+    // 4. Batch lookup existing patients in Supabase
+    // Collect all chart numbers and phones to search for in existing DB
+    const chartsToLookup = Array.from(
+      new Set(
+        uniquePatients
+          .filter(p => Boolean(p.chart_number))
+          .map(p => p.chart_number!.trim())
+      )
+    )
+
+    const phonesToLookup = Array.from(
+      new Set(
+        uniquePatients.map(p => p.phone)
+      )
+    )
 
     const existingByChart = new Map<string, any>()
-    if (chartNumbers.length > 0) {
-      for (let i = 0; i < chartNumbers.length; i += SUB_BATCH) {
-        const chartBatch = chartNumbers.slice(i, i + SUB_BATCH)
-        const { data: existing } = await supabase
-          .from('patients')
-          .select('id, phone, chart_number, email, notes, parent_name, medical_alerts, category')
-          .in('chart_number', chartBatch)
-        if (existing) {
-          existing.forEach((p: any) => {
-            if (p.chart_number) existingByChart.set(p.chart_number.toLowerCase().trim(), p)
-          })
-        }
-      }
-    }
+    const existingByPhone = new Map<string, any>()
 
-    // Merge: for each patient, if existing (by phone or chart_number), update with new non-null fields
-    const mergedPatients = finalPatients.map(p => {
-      let existing = existingByPhone.get(p.phone)
-      if (!existing && p.chart_number) {
-        existing = existingByChart.get(p.chart_number.toLowerCase().trim())
-      }
-      if (!existing) return p // New patient — insert as-is
-
-      // If matched by chart_number and new row has no phone, keep existing phone for onConflict upsert
-      const phoneToUse = (p.phone && !p.phone.startsWith('/-no-phone-') && p.phone !== '/')
-        ? p.phone
-        : existing.phone
-
-      // Merge: keep existing values for fields that are null in the import
-      return {
-        ...p,
-        phone: phoneToUse,
-        chart_number: p.chart_number ?? existing.chart_number,
-        email: p.email ?? existing.email,
-        notes: p.notes
-          ? (existing.notes && !existing.notes.includes(p.notes) ? `${p.notes} | ${existing.notes}` : (existing.notes || p.notes))
-          : existing.notes,
-        parent_name: p.parent_name ?? existing.parent_name,
-        medical_alerts: p.medical_alerts ?? existing.medical_alerts,
-        // Only override category if the import has a non-default value
-        category: (p.category && p.category !== 'regular') ? p.category : (existing.category || p.category),
-      }
-    })
-
-    for (let i = 0; i < mergedPatients.length; i += SUB_BATCH) {
-      const batch = mergedPatients.slice(i, i + SUB_BATCH)
+    // Lookup by chart_number (batches of 100)
+    for (let i = 0; i < chartsToLookup.length; i += 100) {
+      const batch = chartsToLookup.slice(i, i + 100)
       const { data, error } = await supabase
         .from('patients')
-        .upsert(batch, {
-          onConflict: 'phone',
-          ignoreDuplicates: false,
-        })
-        .select('id')
+        .select('id, first_name, last_name, phone, email, parent_name, medical_alerts, notes, category, chart_number')
+        .in('chart_number', batch)
 
       if (error) {
-        console.error(`[bulk-import] Batch error at offset ${i}:`, error.message)
-        errors.push(`Greška u batchu ${Math.floor(i / SUB_BATCH) + 1}: ${error.message}`)
-      } else {
-        insertedCount += data?.length ?? batch.length
+        console.error('[bulk-import] Error looking up charts:', error.message)
+      } else if (data) {
+        data.forEach((p: any) => {
+          if (p.chart_number) {
+            existingByChart.set(p.chart_number.toLowerCase().trim(), p)
+          }
+        })
       }
     }
 
-    // 5. Handle appointments if present — reuse existingByPhone map to avoid extra DB round-trips
-    let appointmentsInserted = 0
-    const patientsWithAppointments = patients.filter((p: any) => p.appointment_date)
+    // Lookup by phone (batches of 100)
+    for (let i = 0; i < phonesToLookup.length; i += 100) {
+      const batch = phonesToLookup.slice(i, i + 100)
+      const { data, error } = await supabase
+        .from('patients')
+        .select('id, first_name, last_name, phone, email, parent_name, medical_alerts, notes, category, chart_number')
+        .in('phone', batch)
 
-    if (patientsWithAppointments.length > 0) {
-      // Build phone→id map: start from already-fetched existing patients
-      const phoneToId = new Map<string, string>()
-      existingByPhone.forEach((existing: any) => {
-        if (existing.id) phoneToId.set(existing.phone, existing.id)
-      })
-
-      // For phones not yet in the map (newly inserted patients), do ONE fetch
-      const missingPhones = patientsWithAppointments
-        .map((p: any) => {
-          const phone = sanitizePhone(p.phone) || p._generatedPhone || ''
-          return phone
+      if (error) {
+        console.error('[bulk-import] Error looking up phones:', error.message)
+      } else if (data) {
+        data.forEach((p: any) => {
+          existingByPhone.set(p.phone, p)
         })
-        .filter((phone: string) => phone && !phoneToId.has(phone))
+      }
+    }
 
-      if (missingPhones.length > 0) {
-        for (let i = 0; i < missingPhones.length; i += SUB_BATCH) {
-          const phoneBatch = missingPhones.slice(i, i + SUB_BATCH)
-          const { data: foundPatients } = await supabase
+    // 5. Upsert / Smart Merge loop
+    const phoneToId = new Map<string, string>()
+    const chartToId = new Map<string, string>()
+
+    for (let i = 0; i < uniquePatients.length; i += SUB_BATCH) {
+      const batch = uniquePatients.slice(i, i + SUB_BATCH)
+
+      for (const p of batch) {
+        const chartKey = p.chart_number ? p.chart_number.toLowerCase().trim() : null
+        let existing = chartKey ? existingByChart.get(chartKey) : undefined
+
+        // If not found by chart_number, check by phone
+        if (!existing) {
+          existing = existingByPhone.get(p.phone)
+        }
+
+        if (existing) {
+          // --- UPDATE EXISTING RECORD ---
+          // Determine best phone to keep: if new row has a real phone and existing had dummy, upgrade!
+          const phoneToKeep = p.hasRealPhone
+            ? p.phone
+            : (existing.phone && !existing.phone.startsWith('/-no-phone-') ? existing.phone : p.phone)
+
+          const updatePayload: Record<string, any> = {
+            first_name: p.first_name || existing.first_name,
+            last_name: p.last_name ?? existing.last_name,
+            phone: phoneToKeep,
+            chart_number: p.chart_number ?? existing.chart_number,
+            email: p.email ?? existing.email,
+            parent_name: p.parent_name ?? existing.parent_name,
+            medical_alerts: p.medical_alerts ?? existing.medical_alerts,
+            notes: mergeNotes(p.notes, existing.notes),
+            category: (p.category && p.category !== 'regular') ? p.category : (existing.category || p.category),
+            updated_at: new Date().toISOString(),
+          }
+
+          const { error: updateErr } = await supabase
             .from('patients')
-            .select('id, phone')
-            .in('phone', phoneBatch)
-          if (foundPatients) {
-            foundPatients.forEach((fp: any) => phoneToId.set(fp.phone, fp.id))
+            .update(updatePayload)
+            .eq('id', existing.id)
+
+          if (updateErr) {
+            console.error(`[bulk-import] Update error for ${p.first_name}:`, updateErr.message)
+            errors.push(`Greška pri ažuriranju (${p.first_name}): ${updateErr.message}`)
+          } else {
+            updatedCount++
+            phoneToId.set(p.phone, existing.id)
+            if (phoneToKeep !== p.phone) phoneToId.set(phoneToKeep, existing.id)
+            if (p.chart_number) chartToId.set(chartKey!, existing.id)
+          }
+        } else {
+          // --- INSERT NEW RECORD ---
+          const insertPayload = {
+            first_name: p.first_name,
+            last_name: p.last_name,
+            phone: p.phone,
+            email: p.email,
+            parent_name: p.parent_name,
+            medical_alerts: p.medical_alerts,
+            notes: p.notes,
+            category: p.category,
+            chart_number: p.chart_number,
+          }
+
+          const { data: newRow, error: insertErr } = await supabase
+            .from('patients')
+            .insert(insertPayload)
+            .select('id, phone, chart_number')
+            .single()
+
+          if (insertErr) {
+            console.error(`[bulk-import] Insert error for ${p.first_name}:`, insertErr.message)
+            // If phone conflict happened concurrently, attempt an in-place update fallback
+            if (insertErr.code === '23505') {
+              const { data: fallbackExisting } = await supabase
+                .from('patients')
+                .select('id')
+                .eq('phone', p.phone)
+                .maybeSingle()
+
+              if (fallbackExisting?.id) {
+                await supabase.from('patients').update({
+                  chart_number: p.chart_number,
+                  updated_at: new Date().toISOString()
+                }).eq('id', fallbackExisting.id)
+                phoneToId.set(p.phone, fallbackExisting.id)
+                if (chartKey) chartToId.set(chartKey, fallbackExisting.id)
+                updatedCount++
+                continue
+              }
+            }
+            errors.push(`Greška pri unosu (${p.first_name}): ${insertErr.message}`)
+          } else if (newRow) {
+            insertedCount++
+            phoneToId.set(p.phone, newRow.id)
+            if (chartKey) chartToId.set(chartKey, newRow.id)
+            // Cache in memory for subsequent items in this same request
+            existingByPhone.set(p.phone, newRow)
+            if (chartKey) existingByChart.set(chartKey, newRow)
           }
         }
       }
+    }
 
-      // Build appointment records
+    // 6. Handle appointments if present
+    let appointmentsInserted = 0
+    const patientsWithAppointments = uniquePatients.filter(p => p.appointment_date)
+
+    if (patientsWithAppointments.length > 0) {
       const appointmentsToInsert: any[] = []
-      patientsWithAppointments.forEach((p: any) => {
-        const phone = sanitizePhone(p.phone) || p._generatedPhone || ''
-        const patientId = phoneToId.get(phone)
+
+      for (const p of patientsWithAppointments) {
+        let patientId = phoneToId.get(p.phone)
+        if (!patientId && p.chart_number) {
+          patientId = chartToId.get(p.chart_number.toLowerCase().trim())
+        }
+
         if (patientId && p.appointment_date) {
           appointmentsToInsert.push({
             patient_id: patientId,
@@ -235,9 +317,8 @@ export async function POST(request: NextRequest) {
             reminder_sent: false,
           })
         }
-      })
+      }
 
-      // Insert appointments in batches
       for (let i = 0; i < appointmentsToInsert.length; i += SUB_BATCH) {
         const batch = appointmentsToInsert.slice(i, i + SUB_BATCH)
         const { error: apptErr } = await supabase
@@ -255,7 +336,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: errors.length === 0,
       inserted: insertedCount,
-      skipped: finalPatients.length - insertedCount,
+      updated: updatedCount,
+      skipped: 0,
       appointmentsInserted,
       errors,
     })

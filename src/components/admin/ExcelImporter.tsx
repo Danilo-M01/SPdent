@@ -125,6 +125,21 @@ function mapDoctorName(raw: unknown): string | null {
   return null
 }
 
+function generateDeterministicNoPhone(firstName: string, lastName?: string | null, chartNumber?: string | null, parentName?: string | null): string {
+  const base = `${firstName} ${lastName ?? ''} ${chartNumber ?? ''} ${parentName ?? ''}`
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]/g, '')
+  let hash = 0
+  for (let i = 0; i < base.length; i++) {
+    hash = ((hash << 5) - hash) + base.charCodeAt(i)
+    hash |= 0
+  }
+  const hex = Math.abs(hash).toString(36)
+  const slug = base.substring(0, 10) || 'anon'
+  return `/-no-phone-${slug}-${hex}`
+}
+
 function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _generatedPhone?: string } {
   // ── Regex patterns za prepoznavanje podataka ───────────────────────────────
   const PHONE_RE = /^[\+]?[\d\s\-\(\)\.\/]{6,20}$/
@@ -190,7 +205,7 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
 
     let _generatedPhone: string | undefined
     if (!phone || phone === '/' || phone.startsWith('/')) {
-      _generatedPhone = `/-no-phone-${Math.random().toString(36).substring(2, 10)}-${Date.now().toString(36)}`
+      _generatedPhone = generateDeterministicNoPhone(firstName, lastName, null, null)
       phone = '/'
     }
 
@@ -428,10 +443,10 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
     phone = cleaned.replace(/[^0-9]/g, '').length >= 6 ? cleaned : ''
   }
 
-  // Generate a unique no-phone ID if phone is missing
+  // Generate a deterministic stable ID if phone is missing
   let _generatedPhone: string | undefined
   if (!phone || phone === '/' || phone.startsWith('/')) {
-    _generatedPhone = `/-no-phone-${Math.random().toString(36).substring(2, 10)}-${Date.now().toString(36)}`
+    _generatedPhone = generateDeterministicNoPhone(firstName, lastName, chartNumber, parentName)
     phone = '/'
   }
 
@@ -464,6 +479,7 @@ interface ImportProgress {
   totalRows: number
   processedRows: number
   insertedRows: number
+  updatedRows: number
   currentChunk: number
   totalChunks: number
   errors: string[]
@@ -502,6 +518,7 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
       totalRows: 0,
       processedRows: 0,
       insertedRows: 0,
+      updatedRows: 0,
       currentChunk: 0,
       totalChunks: 0,
       errors: [],
@@ -545,31 +562,30 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
           return
         }
 
-        // Deduplicate rows: only remove exact duplicate rows.
-        // A row is a duplicate ONLY if it has the same name AND the same real phone number.
-        // Patients without a phone number are NEVER deduped by name alone —
-        // two different people CAN have the same name (e.g., family members, namesakes).
-        const seen = new Map<string, typeof cleanedData[0]>()
+        // Deduplicate rows within the file:
+        // - Rows with same real phone number → one patient
+        // - Rows with same chart_number → one patient
+        // - Rows without phone AND without chart_number → keep all (different people)
+        const seenPhones = new Map<string, typeof cleanedData[0]>()
+        const seenCharts = new Map<string, typeof cleanedData[0]>()
         const dedupedData: typeof cleanedData = []
         for (const row of cleanedData) {
           const phone = (row.phone || '/').trim()
           const hasRealPhone = phone !== '/' && !phone.startsWith('/-no-phone-')
-          
-          if (hasRealPhone) {
-            // Only dedup if there's a real phone number — same phone = same patient
-            const key = `phone:${phone}`
-            if (!seen.has(key)) {
-              seen.set(key, row)
-              dedupedData.push(row)
-            }
-          } else {
-            // No phone — always keep (could be a different person with the same name)
-            dedupedData.push(row)
-          }
+          const chartKey = row.chart_number ? row.chart_number.toLowerCase().trim() : null
+
+          // Skip if already seen by phone
+          if (hasRealPhone && seenPhones.has(phone)) continue
+          // Skip if already seen by chart_number
+          if (chartKey && seenCharts.has(chartKey)) continue
+
+          if (hasRealPhone) seenPhones.set(phone, row)
+          if (chartKey) seenCharts.set(chartKey, row)
+          dedupedData.push(row)
         }
         const removedCount = cleanedData.length - dedupedData.length
         if (removedCount > 0) {
-          console.log(`[ExcelImporter] Removed ${removedCount} duplicate rows (same phone number) out of ${cleanedData.length}`)
+          console.log(`[ExcelImporter] Removed ${removedCount} duplicate rows (same phone/chart_number) out of ${cleanedData.length}`)
         }
         
         setDataPreview(dedupedData)
@@ -621,6 +637,7 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
       totalRows: allRows.length,
       processedRows: 0,
       insertedRows: 0,
+      updatedRows: 0,
       currentChunk: 0,
       totalChunks,
       errors: [],
@@ -666,17 +683,20 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
 
           const result = await res.json()
 
-          if (result.success || (result.inserted && result.inserted > 0)) {
+          if (result.success || result.inserted > 0 || result.updated > 0) {
             successChunk = true
             progressState.processedRows += chunk.length
-            if (result.inserted) {
-              progressState.insertedRows += result.inserted
-            }
+            if (result.inserted) progressState.insertedRows += result.inserted
+            if (result.updated) progressState.updatedRows += result.updated
             if (result.errors && result.errors.length > 0) {
               progressState.errors.push(...result.errors.map((e: string) => `Chunk ${progressState.currentChunk}: ${e}`))
             }
+          } else if (result.error) {
+            throw new Error(result.error)
           } else {
-            throw new Error(result.error || 'Uvoz nije uspeo')
+            // Empty chunk (0 inserted, 0 updated) is still a success
+            successChunk = true
+            progressState.processedRows += chunk.length
           }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err)
@@ -698,10 +718,11 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
     progressState.phase = progressState.errors.length > 0 ? 'error' : 'done'
     setProgress({ ...progressState })
 
+    const totalProcessed = progressState.insertedRows + progressState.updatedRows
     if (progressState.errors.length === 0) {
       setSuccess(true)
       router.refresh()
-    } else if (progressState.insertedRows > 0) {
+    } else if (totalProcessed > 0) {
       // Partial success — still refresh
       router.refresh()
     }
@@ -809,12 +830,12 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
               </div>
             </div>
             <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-100">
-              <div className="text-xs text-emerald-600 mb-1">Ubačeno</div>
+              <div className="text-xs text-emerald-600 mb-1">Novi</div>
               <div className="text-lg font-bold text-emerald-700">{progress.insertedRows.toLocaleString()}</div>
             </div>
-            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-              <div className="text-xs text-slate-500 mb-1">Preostalo</div>
-              <div className="text-lg font-bold text-slate-900">{getTimeEstimate() || '...'}</div>
+            <div className="bg-sky-50 rounded-xl p-3 border border-sky-100">
+              <div className="text-xs text-sky-600 mb-1">Ažurirani</div>
+              <div className="text-lg font-bold text-sky-700">{progress.updatedRows.toLocaleString()}</div>
             </div>
           </div>
 
@@ -859,18 +880,18 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
           <h3 className="text-xl font-bold text-slate-900 mb-2">Uspešno uvezeno!</h3>
           <p className="text-slate-500 mb-4">
             {progress
-              ? `${progress.insertedRows.toLocaleString()} pacijenata dodato u bazu.`
+              ? `${progress.insertedRows.toLocaleString()} novih + ${progress.updatedRows.toLocaleString()} ažuriranih pacijenata.`
               : 'Pacijenti su dodati u bazu.'}
           </p>
           {progress && (
             <div className="grid grid-cols-3 gap-4 w-full max-w-sm">
               <div className="bg-emerald-50 rounded-xl p-3 text-center border border-emerald-100">
                 <div className="text-2xl font-bold text-emerald-700">{progress.insertedRows.toLocaleString()}</div>
-                <div className="text-xs text-emerald-600">Ubačeno</div>
+                <div className="text-xs text-emerald-600">Novi</div>
               </div>
-              <div className="bg-slate-50 rounded-xl p-3 text-center border border-slate-100">
-                <div className="text-2xl font-bold text-slate-700">{progress.totalRows.toLocaleString()}</div>
-                <div className="text-xs text-slate-500">Ukupno</div>
+              <div className="bg-sky-50 rounded-xl p-3 text-center border border-sky-100">
+                <div className="text-2xl font-bold text-sky-700">{progress.updatedRows.toLocaleString()}</div>
+                <div className="text-xs text-sky-600">Ažurirani</div>
               </div>
               <div className="bg-slate-50 rounded-xl p-3 text-center border border-slate-100">
                 <div className="text-2xl font-bold text-slate-700">
@@ -900,25 +921,29 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
             <AlertCircle size={32} />
           </div>
           <h3 className="text-xl font-bold text-slate-900 mb-2">
-            {progress.insertedRows > 0 ? 'Delimično uvezeno' : 'Greška pri uvozu'}
+            {(progress.insertedRows + progress.updatedRows) > 0 ? 'Delimično uvezeno' : 'Greška pri uvozu'}
           </h3>
           <p className="text-slate-500 mb-4">
-            {progress.insertedRows > 0
-              ? `${progress.insertedRows.toLocaleString()} od ${progress.totalRows.toLocaleString()} pacijenata je uspešno ubačeno.`
+            {(progress.insertedRows + progress.updatedRows) > 0
+              ? `${progress.insertedRows.toLocaleString()} novih i ${progress.updatedRows.toLocaleString()} ažuriranih od ${progress.totalRows.toLocaleString()} pacijenata.`
               : 'Nijedan pacijent nije uspešno ubačen.'}
           </p>
 
-          <div className="grid grid-cols-3 gap-4 w-full max-w-sm mb-4">
+          <div className="grid grid-cols-4 gap-3 w-full max-w-sm mb-4">
             <div className="bg-emerald-50 rounded-xl p-3 text-center border border-emerald-100">
-              <div className="text-2xl font-bold text-emerald-700">{progress.insertedRows.toLocaleString()}</div>
-              <div className="text-xs text-emerald-600">Ubačeno</div>
+              <div className="text-xl font-bold text-emerald-700">{progress.insertedRows.toLocaleString()}</div>
+              <div className="text-xs text-emerald-600">Novi</div>
+            </div>
+            <div className="bg-sky-50 rounded-xl p-3 text-center border border-sky-100">
+              <div className="text-xl font-bold text-sky-700">{progress.updatedRows.toLocaleString()}</div>
+              <div className="text-xs text-sky-600">Ažurirani</div>
             </div>
             <div className="bg-red-50 rounded-xl p-3 text-center border border-red-100">
-              <div className="text-2xl font-bold text-red-700">{progress.errors.length}</div>
+              <div className="text-xl font-bold text-red-700">{progress.errors.length}</div>
               <div className="text-xs text-red-500">Greške</div>
             </div>
             <div className="bg-slate-50 rounded-xl p-3 text-center border border-slate-100">
-              <div className="text-2xl font-bold text-slate-700">{progress.totalRows.toLocaleString()}</div>
+              <div className="text-xl font-bold text-slate-700">{progress.totalRows.toLocaleString()}</div>
               <div className="text-xs text-slate-500">Ukupno</div>
             </div>
           </div>
