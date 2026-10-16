@@ -10,6 +10,7 @@ import type { ImportPatient } from '@/app/admin/actions'
 
 interface ExcelImporterProps {
   onClose: () => void
+  onImportSuccess?: () => void
 }
 
 const headerMap: Record<string, string> = {
@@ -486,7 +487,7 @@ interface ImportProgress {
   startTime: number
 }
 
-export default function ExcelImporter({ onClose }: ExcelImporterProps) {
+export default function ExcelImporter({ onClose, onImportSuccess }: ExcelImporterProps) {
   const router = useRouter()
   const [dataPreview, setDataPreview] = useState<Array<ImportPatient & { isInvalid?: boolean; _generatedPhone?: string }>>([])
   const [isUploading, setIsUploading] = useState(false)
@@ -721,9 +722,11 @@ export default function ExcelImporter({ onClose }: ExcelImporterProps) {
     const totalProcessed = progressState.insertedRows + progressState.updatedRows
     if (progressState.errors.length === 0) {
       setSuccess(true)
+      onImportSuccess?.()
       router.refresh()
     } else if (totalProcessed > 0) {
       // Partial success — still refresh
+      onImportSuccess?.()
       router.refresh()
     }
     

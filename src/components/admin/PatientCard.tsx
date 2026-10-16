@@ -24,6 +24,7 @@ interface PatientCardProps {
 function PatientCardComponent({ patient, index }: PatientCardProps) {
   const hasAlerts = Boolean(patient.medical_alerts)
   const catBadge = CATEGORY_BADGES[patient.category ?? 'regular']
+  const chartNum = patient.chart_number?.trim()
 
   return (
     <motion.div
@@ -43,10 +44,15 @@ function PatientCardComponent({ patient, index }: PatientCardProps) {
             <h3 className="text-[#0F172A] font-semibold text-base leading-tight truncate">
               {patient.first_name} {patient.last_name ?? ''}
             </h3>
-            {patient.chart_number && (
-              <span className="inline-flex items-center gap-1 bg-sky-50 border border-sky-200 text-[#0284C7] text-xs font-bold px-2 py-0.5 rounded-lg shrink-0">
-                <FileText size={11} />
-                Karton: {patient.chart_number}
+            {chartNum ? (
+              <span className="inline-flex items-center gap-1 bg-sky-50 border border-sky-200 text-[#0284C7] text-xs font-bold px-2 py-0.5 rounded-lg shrink-0 shadow-xs">
+                <FileText size={11} className="text-[#0284C7]" />
+                Karton: #{chartNum}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 text-slate-400 text-[11px] font-medium px-2 py-0.5 rounded-lg shrink-0">
+                <FileText size={10} className="text-slate-350" />
+                Bez kartona
               </span>
             )}
           </div>
@@ -102,10 +108,10 @@ function PatientCardComponent({ patient, index }: PatientCardProps) {
               </a>
             )}
           </div>
-          {patient.chart_number ? (
+          {chartNum ? (
             <div className="flex items-center gap-1.5 shrink-0 bg-sky-50/70 border border-sky-100 px-2 py-0.5 rounded-lg text-xs font-semibold text-slate-700">
               <FileText size={12} className="text-[#0284C7]" />
-              <span>Karton: <span className="font-bold text-slate-900">{patient.chart_number}</span></span>
+              <span>Karton: <span className="font-bold text-slate-900">{chartNum}</span></span>
             </div>
           ) : (
             <div className="flex items-center gap-1 shrink-0 text-slate-400 text-xs">

@@ -2,11 +2,14 @@
 
 import { useActionState } from 'react'
 import { motion } from 'framer-motion'
+import { useRouter } from 'next/navigation'
 import { addPatient, type ActionResult } from '@/app/admin/actions'
+import type { Patient } from '@/app/admin/(dashboard)/page'
 import { X, UserPlus } from 'lucide-react'
 
 interface AddPatientModalProps {
   onClose: () => void
+  onPatientAdded?: (patient: Patient) => void
 }
 
 const inputClass =
@@ -14,11 +17,18 @@ const inputClass =
 
 const labelClass = 'block text-xs font-semibold text-slate-650 mb-1.5'
 
-export default function AddPatientModal({ onClose }: AddPatientModalProps) {
+export default function AddPatientModal({ onClose, onPatientAdded }: AddPatientModalProps) {
+  const router = useRouter()
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
     async (_prev, formData) => {
       const result = await addPatient(null, formData)
-      if (result.success) onClose()
+      if (result.success) {
+        if (result.patient && onPatientAdded) {
+          onPatientAdded(result.patient)
+        }
+        router.refresh()
+        onClose()
+      }
       return result
     },
     null

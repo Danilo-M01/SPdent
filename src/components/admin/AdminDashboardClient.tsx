@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Patient } from '@/app/admin/(dashboard)/page'
 import PatientCard from './PatientCard'
@@ -9,7 +10,7 @@ import GlobalSearch from './GlobalSearch'
 import AddPatientModal from './AddPatientModal'
 import ExcelImporter from './ExcelImporter'
 import PatientDossierModal from './PatientDossierModal'
-import { Users, AlertTriangle, CalendarDays, Plus, Filter } from 'lucide-react'
+import { Users, AlertTriangle, CalendarDays, Plus, Filter, FileText } from 'lucide-react'
 
 interface Stats {
   totalPatients: number
@@ -43,7 +44,8 @@ const colorMap: Record<string, string> = {
   emerald: 'bg-emerald-50 border border-emerald-100 text-[#10B981]',
 }
 
-type SortBy = 'appointment' | 'alphabetical' | 'newest' | 'recently_updated'
+type SortBy = 'appointment' | 'chart_asc' | 'chart_desc' | 'alphabetical' | 'newest' | 'recently_updated'
+type ChartFilter = 'all' | 'has_chart' | 'no_chart'
 
 function normalizeSearch(str: string): string {
   if (!str) return ''
@@ -69,8 +71,10 @@ export default function AdminDashboardClient({
   stats,
   activeCategory,
 }: AdminDashboardClientProps) {
+  const router = useRouter()
   const [query, setQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortBy>('appointment')
+  const [chartFilter, setChartFilter] = useState<ChartFilter>('all')
   const [showAddModal, setShowAddModal] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
@@ -86,14 +90,22 @@ export default function AdminDashboardClient({
 
   // Pre-index patients for search — only recomputed when patients list changes, NEVER on keystroke
   const searchablePatients = useMemo(() => {
-    return patients.map(p => ({
-      patient: p,
-      searchKey: normalizeSearch(`${p.first_name} ${p.last_name ?? ''} ${p.parent_name ?? ''} ${p.chart_number ?? ''}`),
-      phoneDigits: p.phone.replace(/[^0-9]/g, ''),
-      rawPhone: p.phone.toLowerCase(),
-      chartNumberLc: (p.chart_number ?? '').toLowerCase(),
-      chartClean: (p.chart_number ?? '').toLowerCase().replace(/[^a-z0-9]/gi, ''),
-    }))
+    return patients.map(p => {
+      const chartStr = (p.chart_number ?? '').trim()
+      const chartLc = chartStr.toLowerCase()
+      const chartClean = chartLc.replace(/[^a-z0-9]/gi, '')
+      const nameStr = `${p.first_name} ${p.last_name ?? ''} ${p.parent_name ?? ''}`
+
+      return {
+        patient: p,
+        hasChart: Boolean(chartStr),
+        searchKey: normalizeSearch(`${nameStr} ${chartStr ? `karton ${chartStr} #${chartStr} br ${chartStr}` : ''}`),
+        phoneDigits: p.phone.replace(/[^0-9]/g, ''),
+        rawPhone: p.phone.toLowerCase(),
+        chartNumberLc: chartLc,
+        chartClean: chartClean,
+      }
+    })
   }, [patients])
 
   useEffect(() => {
@@ -142,8 +154,18 @@ export default function AdminDashboardClient({
   }, [])
 
   const filteredPatients = useMemo(() => {
+    let result = searchablePatients
+
+    // 1. Chart presence filter
+    if (chartFilter === 'has_chart') {
+      result = result.filter(item => item.hasChart)
+    } else if (chartFilter === 'no_chart') {
+      result = result.filter(item => !item.hasChart)
+    }
+
+    // 2. Query search
     const trimmed = query.trim()
-    let result = patients
+    let filteredList: Patient[]
 
     if (trimmed) {
       const qNorm = normalizeSearch(trimmed)
@@ -151,21 +173,51 @@ export default function AdminDashboardClient({
       const qRaw = trimmed.toLowerCase()
       const qClean = qRaw.replace(/[^a-z0-9]/gi, '')
 
-      result = searchablePatients
+      // If user typed prefixes like "karton 123", "karton: 123", "#123", "br 123", "k. 123"
+      const cleanChartQuery = qRaw
+        .replace(/^(karton[:\s]*|broj\s*kartona[:\s]*|br\.?[:\s]*kartona[:\s]*|br\.?[:\s]*|k\.?[:\s]*|#\s*)/i, '')
+        .trim()
+      const cleanChartDigits = cleanChartQuery.replace(/[^0-9]/g, '')
+
+      filteredList = result
         .filter(item => {
           if (item.searchKey.includes(qNorm)) return true
-          if (item.chartNumberLc.includes(qRaw)) return true
-          if (qClean && item.chartClean.includes(qClean)) return true
+          if (item.chartNumberLc && item.chartNumberLc.includes(qRaw)) return true
+          if (qClean && item.chartClean && item.chartClean.includes(qClean)) return true
+          if (cleanChartQuery && item.chartNumberLc && item.chartNumberLc.includes(cleanChartQuery)) return true
+          if (cleanChartDigits && item.chartClean && item.chartClean.includes(cleanChartDigits)) return true
           if (item.rawPhone.includes(qRaw)) return true
           if (qDigits.length >= 3 && item.phoneDigits.includes(qDigits)) return true
           return false
         })
         .map(item => item.patient)
+    } else {
+      filteredList = result.map(item => item.patient)
     }
 
-    // Sort: ISO date strings are lexicographically sortable — no new Date() needed
-    return [...result].sort((a, b) => {
+    // 3. Sorting
+    return [...filteredList].sort((a, b) => {
       switch (sortBy) {
+        case 'chart_asc': {
+          const aChart = (a.chart_number ?? '').trim()
+          const bChart = (b.chart_number ?? '').trim()
+          if (aChart && bChart) {
+            return aChart.localeCompare(bChart, undefined, { numeric: true, sensitivity: 'base' })
+          }
+          if (aChart) return -1
+          if (bChart) return 1
+          return a.first_name.localeCompare(b.first_name, 'sr-RS')
+        }
+        case 'chart_desc': {
+          const aChart = (a.chart_number ?? '').trim()
+          const bChart = (b.chart_number ?? '').trim()
+          if (aChart && bChart) {
+            return bChart.localeCompare(aChart, undefined, { numeric: true, sensitivity: 'base' })
+          }
+          if (aChart) return -1
+          if (bChart) return 1
+          return a.first_name.localeCompare(b.first_name, 'sr-RS')
+        }
         case 'appointment': {
           if (a.next_appointment && b.next_appointment) {
             return a.next_appointment < b.next_appointment ? -1 : a.next_appointment > b.next_appointment ? 1 : 0
@@ -188,7 +240,7 @@ export default function AdminDashboardClient({
           return 0
       }
     })
-  }, [query, sortBy, patients, searchablePatients])
+  }, [query, sortBy, chartFilter, searchablePatients])
 
   const renderedPatients = useMemo(() => {
     return filteredPatients.slice(0, visibleCount)
@@ -264,23 +316,44 @@ export default function AdminDashboardClient({
         ))}
       </div>
 
-      {/* Search + Sort */}
+      {/* Search + Filter + Sort */}
       <div className="mb-6 flex flex-col md:flex-row gap-4 items-center">
         <div className="flex-1 w-full">
           <GlobalSearch query={query} onQueryChange={handleQueryChange} totalCount={filteredPatients.length} />
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Filter size={15} className="text-slate-550" />
-          <select
-            value={sortBy}
-            onChange={(e) => { setSortBy(e.target.value as SortBy); setVisibleCount(48); }}
-            className="bg-white border border-slate-200 text-slate-700 text-sm rounded-xl px-4 py-2.5 outline-none focus:border-[#0284C7] appearance-none cursor-pointer shadow-sm"
-          >
-            <option value="appointment">Najbliži termin prvo</option>
-            <option value="alphabetical">Abecedno (A–Z)</option>
-            <option value="newest">Poslednje dodati</option>
-            <option value="recently_updated">Poslednje ažurirani</option>
-          </select>
+        <div className="flex items-center gap-3 shrink-0 flex-wrap sm:flex-nowrap w-full md:w-auto">
+          {/* Chart Filter */}
+          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm flex-1 sm:flex-initial">
+            <FileText size={15} className="text-[#0284C7] shrink-0" />
+            <select
+              value={chartFilter}
+              onChange={(e) => { setChartFilter(e.target.value as ChartFilter); setVisibleCount(48); }}
+              className="bg-transparent text-slate-700 text-sm font-medium outline-none cursor-pointer pr-1 w-full sm:w-auto"
+              aria-label="Filter po kartonu"
+            >
+              <option value="all">Svi kartoni</option>
+              <option value="has_chart">Sa kartonom</option>
+              <option value="no_chart">Bez kartona</option>
+            </select>
+          </div>
+
+          {/* Sort By */}
+          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm flex-1 sm:flex-initial">
+            <Filter size={15} className="text-slate-500 shrink-0" />
+            <select
+              value={sortBy}
+              onChange={(e) => { setSortBy(e.target.value as SortBy); setVisibleCount(48); }}
+              className="bg-transparent text-slate-700 text-sm font-medium outline-none cursor-pointer pr-1 w-full sm:w-auto"
+              aria-label="Sortiranje"
+            >
+              <option value="appointment">Najbliži termin prvo</option>
+              <option value="chart_asc">Broj kartona (1 → 999)</option>
+              <option value="chart_desc">Broj kartona (999 → 1)</option>
+              <option value="alphabetical">Abecedno (A–Z)</option>
+              <option value="newest">Poslednje dodati</option>
+              <option value="recently_updated">Poslednje ažurirani</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -329,13 +402,26 @@ export default function AdminDashboardClient({
       {/* Modals */}
       <AnimatePresence>
         {showAddModal && (
-          <AddPatientModal onClose={() => setShowAddModal(false)} />
+          <AddPatientModal
+            onClose={() => setShowAddModal(false)}
+            onPatientAdded={(newPatient) => {
+              setPatients(prev => [newPatient, ...prev])
+              setLocalStats(prev => ({
+                ...prev,
+                totalPatients: prev.totalPatients + 1,
+                newPatientsThisMonth: prev.newPatientsThisMonth + 1,
+              }))
+            }}
+          />
         )}
         {showImportModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setShowImportModal(false)} />
             <div className="relative w-full max-w-3xl z-10">
-              <ExcelImporter onClose={() => setShowImportModal(false)} />
+              <ExcelImporter
+                onClose={() => setShowImportModal(false)}
+                onImportSuccess={() => router.refresh()}
+              />
             </div>
           </div>
         )}
@@ -344,6 +430,9 @@ export default function AdminDashboardClient({
             key={selectedPatient.id}
             patient={selectedPatient}
             onClose={() => setSelectedPatient(null)}
+            onPatientUpdated={(updated) => {
+              setPatients(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p))
+            }}
             onPatientDeleted={(deletedId) => {
               setPatients(prev => prev.filter(p => p.id !== deletedId))
               setLocalStats(prev => ({ ...prev, totalPatients: prev.totalPatients - 1 }))

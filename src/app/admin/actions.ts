@@ -18,6 +18,7 @@ export type ActionResult = {
   success: boolean
   error?: string
   id?: string
+  patient?: any
 }
 
 // ---------------------------------------------------------------------------
@@ -169,7 +170,7 @@ export async function addPatient(
       takes_anticoagulants: takesAnticoagulants,
       penicillin_allergy: penicillinAllergy,
       consent_signed: consentSigned,
-    }).select('id').single()
+    }).select('*').single()
 
     if (error) {
       console.error('[addPatient] DB Error:', error.message)
@@ -180,7 +181,7 @@ export async function addPatient(
     }
 
     revalidatePath('/admin')
-    return { success: true, id: data?.id }
+    return { success: true, id: data?.id, patient: data }
   } catch (err) {
     console.error('[addPatient] Unexpected:', err)
     return { success: false, error: 'Došlo je do neočekivane greške na serveru.' }

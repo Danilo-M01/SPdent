@@ -20,6 +20,7 @@ import {
   ImageIcon,
   Trash2,
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import type { Patient } from '@/app/admin/(dashboard)/page'
 import { updatePatient, addClinicalReport, addAppointment, deletePatient, deleteAppointment, updateAppointment } from '@/app/admin/actions'
 import { createClient } from '@/lib/supabase/client'
@@ -45,6 +46,7 @@ interface PatientDossierModalProps {
   patient: Patient
   onClose: () => void
   onPatientDeleted?: (patientId: string) => void
+  onPatientUpdated?: (patient: Patient) => void
 }
 
 interface ClinicalReport {
@@ -146,7 +148,8 @@ function getServiceTagClass(service: string) {
   return 'border-slate-200 text-slate-650 bg-slate-50 border'
 }
 
-export default function PatientDossierModal({ patient: initialPatient, onClose, onPatientDeleted }: PatientDossierModalProps) {
+export default function PatientDossierModal({ patient: initialPatient, onClose, onPatientDeleted, onPatientUpdated }: PatientDossierModalProps) {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<'history' | 'appointments' | 'new_report' | 'edit_patient' | 'dental_chart' | 'xrays'>('history')
   const [patient, setPatient] = useState(initialPatient)
   const [reports, setReports] = useState<ClinicalReport[]>([])
@@ -241,9 +244,10 @@ export default function PatientDossierModal({ patient: initialPatient, onClose, 
 
       if (updatedPatient) {
         setPatient(updatedPatient)
+        onPatientUpdated?.(updatedPatient)
       } else {
         const rawPhone = String(formData.get('phone') ?? '').trim()
-        setPatient({
+        const mergedUpdated: Patient = {
           ...patient,
           first_name: String(formData.get('first_name')),
           last_name: String(formData.get('last_name')) || null,
@@ -259,8 +263,11 @@ export default function PatientDossierModal({ patient: initialPatient, onClose, 
           takes_anticoagulants: formData.get('takes_anticoagulants') === 'true',
           penicillin_allergy: formData.get('penicillin_allergy') === 'true',
           consent_signed: formData.get('consent_signed') === 'true',
-        })
+        }
+        setPatient(mergedUpdated)
+        onPatientUpdated?.(mergedUpdated)
       }
+      router.refresh()
       setActiveTab('history')
     } else {
       setError(result.error || 'Greška pri ažuriranju.')
