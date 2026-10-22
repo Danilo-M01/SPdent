@@ -313,12 +313,12 @@ export default function PatientDossierModal({ patient: initialPatient, onClose, 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:pl-64">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
+        className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs"
         onClick={onClose}
       />
 
@@ -326,7 +326,7 @@ export default function PatientDossierModal({ patient: initialPatient, onClose, 
         initial={{ opacity: 0, y: 20, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 20, scale: 0.95 }}
-        className="relative w-full max-w-5xl h-[90vh] bg-white border border-slate-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+        className="relative w-full max-w-5xl h-[90vh] bg-white border border-slate-200 rounded-2xl shadow-2xl flex flex-col overflow-hidden my-auto"
       >
         {/* Header (Patient Info) */}
         <div className="shrink-0 border-b border-slate-100 bg-slate-50/50 p-6 flex flex-col md:flex-row gap-6 justify-between items-start md:items-center relative">
