@@ -179,9 +179,12 @@ export default function AdminDashboardClient({
         .trim()
       const cleanChartDigits = cleanChartQuery.replace(/[^0-9]/g, '')
 
+      const words = qNorm.split(/\s+/).filter(Boolean)
+
       filteredList = result
         .filter(item => {
           if (item.searchKey.includes(qNorm)) return true
+          if (words.length > 1 && words.every(w => item.searchKey.includes(w))) return true
           if (item.chartNumberLc && item.chartNumberLc.includes(qRaw)) return true
           if (qClean && item.chartClean && item.chartClean.includes(qClean)) return true
           if (cleanChartQuery && item.chartNumberLc && item.chartNumberLc.includes(cleanChartQuery)) return true

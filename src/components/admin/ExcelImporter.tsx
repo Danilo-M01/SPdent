@@ -267,13 +267,18 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
   ])
   // Odvojeno ime + prezime
   let firstName = find(['ime','firstname','name'])
-  let lastName  = find(['prezime','lastname','porodicnoime','porodičnoime'])
+  let lastName  = find(['prezime','lastname','porodicnoime','porodičnoime','vuja','вуја','prezimepacijenta'])
 
-  if (firstName && lastName) {
-    firstName = `${firstName} ${lastName}`.trim()
-    lastName  = ''
-  } else if (!firstName && fullName) {
-    firstName = fullName
+  // ISPRAVKA: Ako su ime i prezime odvojeni, ČUVAMO IH ODVOJENO — NE SPAJAMO!
+  // Ako imamo samo puno ime bez odvojenog, parsujemo po razmaku
+  if (!firstName && fullName) {
+    const parts = fullName.trim().split(/\s+/)
+    if (parts.length >= 2) {
+      firstName = parts[0]
+      lastName  = parts.slice(1).join(' ')
+    } else {
+      firstName = fullName
+    }
   }
 
   // Ako nije pronađeno ni po ključu — pokušaj po obliku vrednosti (poslednji pokušaj)
@@ -453,7 +458,7 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
 
   return {
     first_name: firstName.trim(),
-    last_name: null,
+    last_name: lastName ? lastName.trim() : null,
     phone: phone || '/',
     email: email ? String(email).trim() : null,
     parent_name: parentName ? String(parentName).trim() : null,
@@ -739,7 +744,7 @@ export default function ExcelImporter({ onClose, onImportSuccess }: ExcelImporte
 
   const validRowsCount = dataPreview.length
   const headers = dataPreview.length > 0 
-    ? Object.keys(dataPreview[0]).filter(key => key !== 'isInvalid' && key !== 'last_name' && key !== '_generatedPhone') 
+    ? Object.keys(dataPreview[0]).filter(key => key !== 'isInvalid' && key !== '_generatedPhone') 
     : []
 
   // Calculate time estimates
@@ -1025,7 +1030,7 @@ export default function ExcelImporter({ onClose, onImportSuccess }: ExcelImporte
                     <tr>
                       {headers.map((key) => (
                         <th key={key} className="px-4 py-3 text-slate-700 font-semibold">
-                          {headerMap[key] || key}
+                          {key === 'first_name' ? 'Ime i Prezime' : (headerMap[key] || key)}
                         </th>
                       ))}
                     </tr>
@@ -1037,6 +1042,19 @@ export default function ExcelImporter({ onClose, onImportSuccess }: ExcelImporte
                         className="hover:bg-slate-100/50"
                       >
                         {headers.map((key, j) => {
+                          // Prikaži first_name + last_name zajedno
+                          if (key === 'first_name') {
+                            const fn = row.first_name || ''
+                            const ln = row.last_name || ''
+                            const fullName = ln ? `${fn} ${ln}` : fn
+                            return (
+                              <td key={j} className="px-4 py-3 text-slate-900 font-medium">
+                                {fullName || <span className="text-slate-400">-</span>}
+                              </td>
+                            )
+                          }
+                          // Preskoči last_name jer je uključen u first_name red
+                          if (key === 'last_name') return null
                           const val = row[key as keyof ImportPatient]
                           if (key === 'phone' && val === '/') {
                             return (

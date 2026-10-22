@@ -146,6 +146,66 @@ export function getDoctorColor(doctorName: string | null | undefined) {
   }
 }
 
+function normalizeSearch(str: string): string {
+  if (!str) return ''
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'dj')
+    .replace(/љ/g, 'lj')
+    .replace(/њ/g, 'nj')
+    .replace(/џ/g, 'dz')
+    .replace(/а/g, 'a').replace(/б/g, 'b').replace(/в/g, 'v').replace(/г/g, 'g')
+    .replace(/д/g, 'd').replace(/ђ/g, 'dj').replace(/е/g, 'e').replace(/ж/g, 'z')
+    .replace(/з/g, 'z').replace(/и/g, 'i').replace(/ј/g, 'j').replace(/к/g, 'k')
+    .replace(/л/g, 'l').replace(/м/g, 'm').replace(/н/g, 'n').replace(/о/g, 'o')
+    .replace(/п/g, 'p').replace(/р/g, 'r').replace(/с/g, 's').replace(/т/g, 't')
+    .replace(/ћ/g, 'c').replace(/у/g, 'u').replace(/ф/g, 'f').replace(/х/g, 'h')
+    .replace(/ц/g, 'c').replace(/ч/g, 'c').replace(/ш/g, 's')
+}
+
+function matchPatientSearch(
+  p: { first_name?: string | null; last_name?: string | null; phone?: string | null; chart_number?: string | null } | undefined | null,
+  rawQuery: string
+): boolean {
+  if (!p) return false
+  const trimmed = rawQuery.trim()
+  if (!trimmed) return true
+
+  const qNorm = normalizeSearch(trimmed)
+  const qDigits = trimmed.replace(/[^0-9]/g, '')
+  const qCleanChart = trimmed
+    .toLowerCase()
+    .replace(/^(karton[:\s]*|broj\s*kartona[:\s]*|br\.?[:\s]*kartona[:\s]*|br\.?[:\s]*|k\.?[:\s]*|#\s*)/i, '')
+    .trim()
+
+  const fName = p.first_name || ''
+  const lName = p.last_name || ''
+  const chartStr = (p.chart_number ?? '').trim()
+  const chartNorm = normalizeSearch(chartStr)
+  const phone = p.phone || ''
+  const phoneDigits = phone.replace(/[^0-9]/g, '')
+
+  // 1. Chart number match
+  if (chartStr) {
+    if (chartNorm && chartNorm.includes(qNorm)) return true
+    if (qCleanChart && chartNorm.includes(qCleanChart)) return true
+    if (qDigits && chartStr.replace(/[^0-9]/g, '').includes(qDigits)) return true
+  }
+
+  // 2. Phone match
+  if (qDigits.length >= 3 && phoneDigits.includes(qDigits)) return true
+  if (phone.toLowerCase().includes(trimmed.toLowerCase())) return true
+
+  // 3. Name match - multi-word any order (e.g. "Petrović Marko" or "Marko Petrović")
+  const combined = normalizeSearch(`${fName} ${lName} ${chartStr}`)
+  const words = qNorm.split(/\s+/).filter(Boolean)
+  if (words.length > 0 && words.every(w => combined.includes(w))) return true
+
+  return false
+}
+
 // Format Belgrade Timezone ISO string safely
 function formatTime(iso: string) {
   const d = new Date(iso)
@@ -314,15 +374,8 @@ export default function TerminiClient({
   // Find all appointments matching the search query sorted chronologically
   const matchingAppointments = useMemo(() => {
     if (!patientFilterQuery.trim()) return []
-    const q = patientFilterQuery.toLowerCase().trim()
     return appointments
-      .filter((appt) => {
-        if (!appt.patient) return false
-        const firstName = appt.patient.first_name || ''
-        const lastName = appt.patient.last_name || ''
-        const fullName = `${firstName} ${lastName}`.toLowerCase()
-        return fullName.includes(q)
-      })
+      .filter((appt) => matchPatientSearch(appt.patient, patientFilterQuery))
       .sort((a, b) => new Date(a.appointment_datetime).getTime() - new Date(b.appointment_datetime).getTime())
   }, [appointments, patientFilterQuery])
 
@@ -376,34 +429,21 @@ export default function TerminiClient({
       )
     }
     if (patientFilterQuery.trim()) {
-      const q = patientFilterQuery.toLowerCase().trim()
-      list = list.filter((appt) => {
-        if (!appt.patient) return false
-        const firstName = appt.patient.first_name || ''
-        const lastName = appt.patient.last_name || ''
-        const fullName = `${firstName} ${lastName}`.toLowerCase()
-        return fullName.includes(q)
-      })
+      list = list.filter((appt) => matchPatientSearch(appt.patient, patientFilterQuery))
     }
     return list
   }, [appointments, doctorFilter, patientFilterQuery])
 
-  // Autocomplete patient search list - optimized with fast exit
+  // Autocomplete patient search list - fast lookup supporting full names, charts, phones
   const filteredPatients = useMemo(() => {
     if (!patientSearch.trim()) return []
-    const q = patientSearch.toLowerCase().trim()
     const results: Patient[] = []
     
     for (let i = 0; i < patientsList.length; i++) {
       const p = patientsList[i]
-      const fNameMatch = p.first_name && p.first_name.toLowerCase().includes(q)
-      const lNameMatch = p.last_name && p.last_name.toLowerCase().includes(q)
-      const phoneMatch = p.phone && p.phone.includes(q)
-      const chartMatch = p.chart_number && p.chart_number.toLowerCase().includes(q)
-      
-      if (fNameMatch || lNameMatch || phoneMatch || chartMatch) {
+      if (matchPatientSearch(p, patientSearch)) {
         results.push(p)
-        if (results.length >= 5) {
+        if (results.length >= 10) {
           break
         }
       }

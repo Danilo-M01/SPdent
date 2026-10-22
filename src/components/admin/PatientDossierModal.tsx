@@ -343,13 +343,17 @@ export default function PatientDossierModal({ patient: initialPatient, onClose, 
             </div>
             <div>
               <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
-                {patient.first_name} {patient.last_name}
+                {patient.first_name}{patient.last_name ? ` ${patient.last_name}` : ''}
               </h2>
               <div className="flex flex-wrap gap-3 mt-2 text-sm text-slate-500 items-center">
-                <span className="flex items-center gap-1.5"><Phone size={14} className="text-slate-400" /> {patient.phone.startsWith('/') ? '/' : patient.phone}</span>
-                {patient.chart_number && (
+                <span className="flex items-center gap-1.5"><Phone size={14} className="text-slate-400" /> {patient.phone?.startsWith('/') ? '/' : patient.phone || '/'}</span>
+                {patient.chart_number && patient.chart_number.trim() ? (
                   <span className="flex items-center gap-1 text-sky-700 bg-sky-50 border border-sky-100 font-semibold px-2 py-0.5 rounded-md text-xs">
-                    <FileText size={12} className="text-[#0284C7]" /> Karton: {patient.chart_number}
+                    <FileText size={12} className="text-[#0284C7]" /> Karton: {patient.chart_number.trim()}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-slate-400 bg-slate-50 border border-slate-200 font-medium px-2 py-0.5 rounded-md text-xs">
+                    <FileText size={12} className="text-slate-350" /> Bez kartona
                   </span>
                 )}
                 {patient.email && <span className="flex items-center gap-1.5"><Mail size={14} className="text-slate-400" /> {patient.email}</span>}
