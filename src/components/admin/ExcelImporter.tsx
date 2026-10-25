@@ -378,17 +378,26 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
     'бројкартона', 'бркартона', 'картон', 'картонбр', 'досије', 'матичникартон'
   ])
 
-  // ── 8. Termin / Sledeći pregled i Izabrani doktor ─────────────────────────
+  // ── 8. Termin / Sledeći pregled / Kontrola i Izabrani doktor ─────────────
   const rawDateVal = find([
-    'sledecitermin', 'sledećitermin', 'sledećipregled', 'sledecipregled', 'termin', 'datum', 'pregled', 'vreme', 
+    // "Sledeća kontrola" / "Kontrola" — their most common column names
+    'sledecakontroloa', 'sledecakontola', 'sledecakontrol', 'sledećakontrol',
+    'sledecakontroladat', 'kontrola', 'sledecipregled', 'sledećipregled',
+    'sledecitermin', 'sledećitermin', 'termin', 'datum', 'pregled', 'vreme',
     'datumtermina', 'datumvreme', 'datumivreme', 'sledećidolazak', 'sledecidolazak',
-    'nextvisit', 'nextappointment', 'sledeciposeta', 'narednitermin', 'zakazano', 'sledecaposeta'
+    'nextvisit', 'nextappointment', 'sledeciposeta', 'narednitermin', 'zakazano',
+    'sledecaposeta', 'zakazanitermin', 'zakazanidatum', 'datumkontrole',
+    'datumsledzegpregleda', 'kontrolnitermin', 'narednjipregled', 'narednakontrola',
+    'sledecikontrolnitermin', 'sledecakontroladat', 'sledecidatum',
+    // Cyrillic
+    'следећиpregled', 'sledecikontrola', 'следецакontrol', 'kontrolnitermin'
   ])
   const appointmentDate = parseImportedDate(rawDateVal)
 
   const rawDoctorVal = find([
     'izabranidoktor', 'doktor', 'doctor', 'lekar', 'dentist', 'stomatolog',
-    'ordinirajucilekar', 'ordinirajućilekar', 'nadlezanlekar', 'nadležni'
+    'ordinirajucilekar', 'ordinirajućilekar', 'nadlezanlekar', 'nadležni',
+    'izabraniLekar', 'lekarkoji', 'doktorkoji', 'nadlezni', 'ordinariuslekar'
   ])
   const mappedDoctorName = mapDoctorName(rawDoctorVal)
 
@@ -573,29 +582,23 @@ export default function ExcelImporter({ onClose, onImportSuccess }: ExcelImporte
         }
 
         // Deduplicate rows within the file:
-        // - Rows with same real phone number → one patient
-        // - Rows with same chart_number → one patient
-        // - Rows without phone AND without chart_number → keep all (different people)
-        const seenPhones = new Map<string, typeof cleanedData[0]>()
+        // - Rows with same chart_number → one patient (merge)
+        // - Rows without chart_number → ALWAYS keep all (different people, even same name)
+        // NOTE: We do NOT dedup by phone — clinic has many patients with same name/no phone
         const seenCharts = new Map<string, typeof cleanedData[0]>()
         const dedupedData: typeof cleanedData = []
         for (const row of cleanedData) {
-          const phone = (row.phone || '/').trim()
-          const hasRealPhone = phone !== '/' && !phone.startsWith('/-no-phone-')
           const chartKey = row.chart_number ? row.chart_number.toLowerCase().trim() : null
 
-          // Skip if already seen by phone
-          if (hasRealPhone && seenPhones.has(phone)) continue
-          // Skip if already seen by chart_number
+          // Skip if already seen by chart_number (same patient, same row)
           if (chartKey && seenCharts.has(chartKey)) continue
 
-          if (hasRealPhone) seenPhones.set(phone, row)
           if (chartKey) seenCharts.set(chartKey, row)
           dedupedData.push(row)
         }
         const removedCount = cleanedData.length - dedupedData.length
         if (removedCount > 0) {
-          console.log(`[ExcelImporter] Removed ${removedCount} duplicate rows (same phone/chart_number) out of ${cleanedData.length}`)
+          console.log(`[ExcelImporter] Removed ${removedCount} duplicate rows (same chart_number) out of ${cleanedData.length}`)
         }
         
         setDataPreview(dedupedData)

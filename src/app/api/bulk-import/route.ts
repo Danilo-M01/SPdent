@@ -167,8 +167,9 @@ export async function POST(request: NextRequest) {
     //    - Has chart_number AND exists in DB → UPDATE
     //    - Has chart_number AND not in DB → INSERT
     //    - No chart_number → always INSERT (multiple patients with same name are allowed)
-    const phoneToId = new Map<string, string>()
     const chartToId = new Map<string, string>()
+    // Track patient DB id per object (works even when phone/chart collide)
+    const patientIdMap = new WeakMap<object, string>()
 
     for (let i = 0; i < uniquePatients.length; i += SUB_BATCH) {
       const batch = uniquePatients.slice(i, i + SUB_BATCH)
@@ -206,8 +207,8 @@ export async function POST(request: NextRequest) {
             errors.push(`Greška pri ažuriranju (${p.first_name}): ${updateErr.message}`)
           } else {
             updatedCount++
-            phoneToId.set(p.phone, existing.id)
-            if (p.chart_number) chartToId.set(chartKey!, existing.id)
+            patientIdMap.set(p, existing.id)
+            if (chartKey) chartToId.set(chartKey, existing.id)
           }
         } else {
           // --- INSERT NEW RECORD ---
@@ -231,14 +232,14 @@ export async function POST(request: NextRequest) {
             .single()
 
           if (insertErr) {
-            // Phone unique constraint hit — update phone to a unique dummy and retry
+            // Phone unique constraint hit — generate a unique dummy phone and retry
             if (insertErr.code === '23505') {
               const dummyPhone = generateDeterministicNoPhone(
                 p.first_name,
                 p.last_name,
                 p.chart_number,
                 p.parent_name
-              ) + `-${Date.now()}`
+              ) + `-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
               const retryPayload = { ...insertPayload, phone: dummyPhone }
               const { data: retryRow, error: retryErr } = await supabase
                 .from('patients')
@@ -249,7 +250,7 @@ export async function POST(request: NextRequest) {
                 errors.push(`Greška pri unosu (${p.first_name}): ${retryErr.message}`)
               } else if (retryRow) {
                 insertedCount++
-                phoneToId.set(p.phone, retryRow.id)
+                patientIdMap.set(p, retryRow.id)
                 if (chartKey) chartToId.set(chartKey, retryRow.id)
                 if (chartKey) existingByChart.set(chartKey, retryRow)
               }
@@ -259,7 +260,7 @@ export async function POST(request: NextRequest) {
             }
           } else if (newRow) {
             insertedCount++
-            phoneToId.set(p.phone, newRow.id)
+            patientIdMap.set(p, newRow.id)
             if (chartKey) chartToId.set(chartKey, newRow.id)
             if (chartKey) existingByChart.set(chartKey, newRow)
           }
@@ -267,30 +268,62 @@ export async function POST(request: NextRequest) {
       }
     }
 
-
     // 6. Handle appointments if present
+    // For each patient with appointment_date, insert into appointments table.
+    // We look up the patient DB id via patientIdMap (set above) or chartToId fallback.
+    // We avoid duplicate appointments: skip if this patient already has an appointment on the same day.
     let appointmentsInserted = 0
     const patientsWithAppointments = uniquePatients.filter(p => p.appointment_date)
 
     if (patientsWithAppointments.length > 0) {
+      // Collect all patient ids that have appointments so we can check existing ones
+      const patientIdsForAppts: string[] = []
+      for (const p of patientsWithAppointments) {
+        const id = patientIdMap.get(p) ?? (p.chart_number ? chartToId.get(p.chart_number.toLowerCase().trim()) : undefined)
+        if (id) patientIdsForAppts.push(id)
+      }
+
+      // Fetch existing appointments for these patients so we don't duplicate
+      const existingApptKeys = new Set<string>()
+      if (patientIdsForAppts.length > 0) {
+        for (let i = 0; i < patientIdsForAppts.length; i += 100) {
+          const batchIds = patientIdsForAppts.slice(i, i + 100)
+          const { data: existingAppts } = await supabase
+            .from('appointments')
+            .select('patient_id, appointment_datetime')
+            .in('patient_id', batchIds)
+
+          if (existingAppts) {
+            for (const a of existingAppts) {
+              // Key: patientId + date (first 10 chars of ISO string = YYYY-MM-DD)
+              const dayKey = `${a.patient_id}::${String(a.appointment_datetime).substring(0, 10)}`
+              existingApptKeys.add(dayKey)
+            }
+          }
+        }
+      }
+
       const appointmentsToInsert: any[] = []
 
       for (const p of patientsWithAppointments) {
-        let patientId = phoneToId.get(p.phone)
-        if (!patientId && p.chart_number) {
-          patientId = chartToId.get(p.chart_number.toLowerCase().trim())
-        }
+        const chartKey = p.chart_number ? p.chart_number.toLowerCase().trim() : null
+        const patientId = patientIdMap.get(p) ?? (chartKey ? chartToId.get(chartKey) : undefined)
 
-        if (patientId && p.appointment_date) {
-          appointmentsToInsert.push({
-            patient_id: patientId,
-            appointment_datetime: p.appointment_date,
-            doctor_name: p.doctor_name || null,
-            treatment_today: 'Uvezen termin',
-            treatment_history: [],
-            reminder_sent: false,
-          })
-        }
+        if (!patientId || !p.appointment_date) continue
+
+        // Skip if this patient already has an appointment on that day
+        const dayKey = `${patientId}::${String(p.appointment_date).substring(0, 10)}`
+        if (existingApptKeys.has(dayKey)) continue
+
+        appointmentsToInsert.push({
+          patient_id: patientId,
+          appointment_datetime: p.appointment_date,
+          doctor_name: p.doctor_name || null,
+          treatment_today: 'Uvezen termin',
+          treatment_history: [],
+          reminder_sent: false,
+        })
+        existingApptKeys.add(dayKey) // Prevent intra-batch duplicates too
       }
 
       for (let i = 0; i < appointmentsToInsert.length; i += SUB_BATCH) {
@@ -301,11 +334,13 @@ export async function POST(request: NextRequest) {
 
         if (apptErr) {
           console.error(`[bulk-import] Appointment batch error:`, apptErr.message)
+          errors.push(`Greška pri unosu termina: ${apptErr.message}`)
         } else {
           appointmentsInserted += batch.length
         }
       }
     }
+
 
     return NextResponse.json({
       success: errors.length === 0,
