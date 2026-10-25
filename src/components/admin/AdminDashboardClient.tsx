@@ -66,6 +66,14 @@ function normalizeSearch(str: string): string {
     .replace(/ц/g, 'c').replace(/ч/g, 'c').replace(/ш/g, 's')
 }
 
+function cleanPhoneCore(digits: string): string {
+  let core = digits
+  if (core.startsWith('00381')) core = core.slice(5)
+  else if (core.startsWith('381')) core = core.slice(3)
+  if (core.startsWith('0')) core = core.slice(1)
+  return core
+}
+
 export default function AdminDashboardClient({
   initialPatients,
   stats,
@@ -101,6 +109,7 @@ export default function AdminDashboardClient({
         hasChart: Boolean(chartStr),
         searchKey: normalizeSearch(`${nameStr} ${chartStr ? `karton ${chartStr} #${chartStr} br ${chartStr}` : ''}`),
         phoneDigits: p.phone.replace(/[^0-9]/g, ''),
+        phoneCore: cleanPhoneCore(p.phone.replace(/[^0-9]/g, '')),
         rawPhone: p.phone.toLowerCase(),
         chartNumberLc: chartLc,
         chartClean: chartClean,
@@ -181,6 +190,8 @@ export default function AdminDashboardClient({
 
       const words = qNorm.split(/\s+/).filter(Boolean)
 
+      const qCore = cleanPhoneCore(qDigits)
+
       filteredList = result
         .filter(item => {
           if (item.searchKey.includes(qNorm)) return true
@@ -189,8 +200,15 @@ export default function AdminDashboardClient({
           if (qClean && item.chartClean && item.chartClean.includes(qClean)) return true
           if (cleanChartQuery && item.chartNumberLc && item.chartNumberLc.includes(cleanChartQuery)) return true
           if (cleanChartDigits && item.chartClean && item.chartClean.includes(cleanChartDigits)) return true
-          if (item.rawPhone.includes(qRaw)) return true
-          if (qDigits.length >= 3 && item.phoneDigits.includes(qDigits)) return true
+          
+          // Flexible phone search (handles +381, 06x, dashes, spaces, partial digits)
+          if (!item.patient.phone.startsWith('/')) {
+            if (item.rawPhone.includes(qRaw)) return true
+            if (qDigits.length >= 2 && item.phoneDigits.includes(qDigits)) return true
+            if (qCore.length >= 2 && item.phoneCore.includes(qCore)) return true
+            if (qCore.length >= 2 && item.phoneDigits.includes(qCore)) return true
+          }
+
           return false
         })
         .map(item => item.patient)

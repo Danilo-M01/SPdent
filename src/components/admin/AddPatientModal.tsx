@@ -160,19 +160,35 @@ export default function AddPatientModal({ onClose, onPatientAdded }: AddPatientM
               />
             </div>
 
-            {/* Kategorija pacijenta */}
-            <div>
-              <label htmlFor="modal-category" className={labelClass}>Kategorija pacijenta</label>
-              <select
-                id="modal-category"
-                name="category"
-                className={inputClass}
-                defaultValue="regular"
-              >
-                <option value="regular">Regularni pacijent (Opšta stomatologija)</option>
-                <option value="implant">Implantologija</option>
-                <option value="proteza">Protetika / Proteze</option>
-              </select>
+            {/* Row: Kategorija + Izabrani zubar */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="modal-category" className={labelClass}>Kategorija</label>
+                <select
+                  id="modal-category"
+                  name="category"
+                  className={inputClass}
+                  defaultValue="regular"
+                >
+                  <option value="regular">Regularni</option>
+                  <option value="implant">Implant</option>
+                  <option value="proteza">Protetika</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="modal-doctor" className={labelClass}>Izabrani zubar / lekar</label>
+                <select
+                  id="modal-doctor"
+                  name="doctor_name"
+                  className={inputClass}
+                  defaultValue=""
+                >
+                  <option value="">Izaberite (opciono)</option>
+                  <option value="dr Slaviša Petković">dr Slaviša Petković</option>
+                  <option value="dr Nebojša Kostić">dr Nebojša Kostić</option>
+                  <option value="dr Đurđina Grujić">dr Đurđina Grujić</option>
+                </select>
+              </div>
             </div>
 
             {/* Medicinska upozorenja — full width, highlighted */}

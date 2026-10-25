@@ -133,7 +133,11 @@ export async function addPatient(
     const email = sanitizeEmail(formData.get('email'))
     const parentName = sanitizeText(formData.get('parent_name'))
     const medicalAlerts = sanitizeText(formData.get('medical_alerts'))
-    const notes = sanitizeText(formData.get('notes'))
+    const rawNotes = sanitizeText(formData.get('notes'))
+    const doctorName = sanitizeText(formData.get('doctor_name'))
+    const notes = doctorName
+      ? (rawNotes ? `Izabrani lekar: ${doctorName}\n${rawNotes}` : `Izabrani lekar: ${doctorName}`)
+      : rawNotes
     const category = sanitizeText(formData.get('category')) || 'regular'
     const chartNumber = sanitizeText(formData.get('chart_number'))
 

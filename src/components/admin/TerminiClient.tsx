@@ -28,6 +28,7 @@ import {
   addAppointment, 
   addPatient 
 } from '@/app/admin/actions'
+import AddPatientModal from './AddPatientModal'
 
 interface Patient {
   id: string
@@ -165,6 +166,14 @@ function normalizeSearch(str: string): string {
     .replace(/ц/g, 'c').replace(/ч/g, 'c').replace(/ш/g, 's')
 }
 
+function cleanPhoneCore(digits: string): string {
+  let core = digits
+  if (core.startsWith('00381')) core = core.slice(5)
+  else if (core.startsWith('381')) core = core.slice(3)
+  if (core.startsWith('0')) core = core.slice(1)
+  return core
+}
+
 function matchPatientSearch(
   p: { first_name?: string | null; last_name?: string | null; phone?: string | null; chart_number?: string | null } | undefined | null,
   rawQuery: string
@@ -194,9 +203,17 @@ function matchPatientSearch(
     if (qDigits && chartStr.replace(/[^0-9]/g, '').includes(qDigits)) return true
   }
 
-  // 2. Phone match
-  if (qDigits.length >= 3 && phoneDigits.includes(qDigits)) return true
-  if (phone.toLowerCase().includes(trimmed.toLowerCase())) return true
+  // 2. Phone match (supports 064..., +38164..., 064/..., partials, etc.)
+  if (phone && !phone.startsWith('/')) {
+    if (phone.toLowerCase().includes(trimmed.toLowerCase())) return true
+    if (qDigits && qDigits.length >= 2) {
+      if (phoneDigits.includes(qDigits)) return true
+      const phoneCore = cleanPhoneCore(phoneDigits)
+      const qCore = cleanPhoneCore(qDigits)
+      if (qCore.length >= 2 && phoneCore.includes(qCore)) return true
+      if (qCore.length >= 2 && phoneDigits.includes(qCore)) return true
+    }
+  }
 
   // 3. Name match - multi-word any order (e.g. "Petrović Marko" or "Marko Petrović")
   const combined = normalizeSearch(`${fName} ${lName} ${chartStr}`)
@@ -281,6 +298,7 @@ export default function TerminiClient({
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
 
   // Booking Modal States
+  const [showAddPatientModal, setShowAddPatientModal] = useState(false)
   const [isBookOpen, setIsBookOpen] = useState(false)
   const [bookDatetime, setBookDatetime] = useState('')
   const [bookDate, setBookDate] = useState<string>('')
@@ -803,7 +821,7 @@ export default function TerminiClient({
   return (
     <div className="min-h-screen bg-slate-50 p-4 pt-20 sm:p-6 lg:p-8">
       {/* Header Panel */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      <div className="flex items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('toggle-admin-sidebar'))}
@@ -829,6 +847,16 @@ export default function TerminiClient({
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Planer</h1>
           </div>
         </div>
+
+        {/* Gornji desni ugao: Plavi plus za brzo dodavanje novog pacijenta */}
+        <button
+          onClick={() => setShowAddPatientModal(true)}
+          title="Dodaj novog pacijenta"
+          aria-label="Dodaj novog pacijenta"
+          className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-[#0284C7] hover:bg-sky-600 active:scale-95 text-white flex items-center justify-center shadow-md shadow-sky-500/20 hover:shadow-lg hover:shadow-sky-500/30 transition-all cursor-pointer shrink-0"
+        >
+          <Plus size={22} className="stroke-[2.5]" />
+        </button>
       </div>
 
       {/* Page-level Alerts */}
@@ -1886,6 +1914,20 @@ export default function TerminiClient({
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL 4: ADD PATIENT MODAL */}
+      <AnimatePresence>
+        {showAddPatientModal && (
+          <AddPatientModal
+            onClose={() => setShowAddPatientModal(false)}
+            onPatientAdded={(newPatient) => {
+              setPatientsList(prev => [newPatient, ...prev])
+              setSuccessMsg(`Pacijent ${newPatient.first_name} ${newPatient.last_name || ''} je uspešno dodat!`)
+              setShowAddPatientModal(false)
+            }}
+          />
         )}
       </AnimatePresence>
     </div>
