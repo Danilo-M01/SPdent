@@ -1492,7 +1492,7 @@ export default function TerminiClient({
                           }}
                           onFocus={() => setShowDropdown(true)}
                           onClick={() => setShowDropdown(true)}
-                          placeholder="Unesite ime pacijenta (npr. Marko Marković)..."
+                          placeholder="Pretraži po imenu, broju kartona ili telefonu..."
                           className={`w-full bg-slate-50 border hover:border-slate-350 focus:border-sky-500 focus:bg-white rounded-xl pl-10 pr-9 py-2.5 text-slate-900 outline-none text-sm font-bold placeholder-slate-400 transition-colors ${
                             selectedPatientId ? 'border-emerald-500 focus:border-emerald-500' : 'border-slate-200'
                           }`}
@@ -1587,7 +1587,7 @@ export default function TerminiClient({
                             </div>
                             <div className="space-y-1.5">
                               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                Broj kartona (opciono)
+                                Broj kartona
                               </label>
                               <input
                                 type="text"
