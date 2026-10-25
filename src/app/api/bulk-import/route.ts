@@ -106,37 +106,34 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // 3. Deduplicate within the incoming request payload itself
+    // 3. Deduplicate ONLY within same chart_number in this batch.
+    //    Patients WITHOUT chart_number are ALWAYS inserted as new — never merged by name or phone.
     const dedupMap = new Map<string, typeof formattedPatients[0]>()
     const uniquePatients: typeof formattedPatients = []
 
     for (const p of formattedPatients) {
-      // Primary dedup key: chart_number if present, else phone
-      const key = p.chart_number
-        ? `chart:${p.chart_number.toLowerCase().trim()}`
-        : `phone:${p.phone}`
-
-      if (dedupMap.has(key)) {
-        // Merge with previous entry in this same batch
-        const prev = dedupMap.get(key)!
-        prev.notes = mergeNotes(p.notes, prev.notes)
-        if (!prev.email && p.email) prev.email = p.email
-        if (!prev.parent_name && p.parent_name) prev.parent_name = p.parent_name
-        if (!prev.medical_alerts && p.medical_alerts) prev.medical_alerts = p.medical_alerts
-        if (p.category !== 'regular') prev.category = p.category
-        if (!prev.appointment_date && p.appointment_date) {
-          prev.appointment_date = p.appointment_date
-          prev.doctor_name = p.doctor_name
+      if (p.chart_number) {
+        // Only dedup if they share the exact same chart_number in this batch
+        const key = p.chart_number.toLowerCase().trim()
+        if (dedupMap.has(key)) {
+          const prev = dedupMap.get(key)!
+          prev.notes = mergeNotes(p.notes, prev.notes)
+          if (!prev.email && p.email) prev.email = p.email
+          if (!prev.parent_name && p.parent_name) prev.parent_name = p.parent_name
+          if (!prev.medical_alerts && p.medical_alerts) prev.medical_alerts = p.medical_alerts
+          if (p.category !== 'regular') prev.category = p.category
+          if (!prev.appointment_date && p.appointment_date) {
+            prev.appointment_date = p.appointment_date
+            prev.doctor_name = p.doctor_name
+          }
+          continue
         }
-        continue
+        dedupMap.set(key, p)
       }
-
-      dedupMap.set(key, p)
       uniquePatients.push(p)
     }
 
-    // 4. Batch lookup existing patients in Supabase
-    // Collect all chart numbers and phones to search for in existing DB
+    // 4. Batch lookup existing patients by chart_number ONLY
     const chartsToLookup = Array.from(
       new Set(
         uniquePatients
@@ -145,14 +142,7 @@ export async function POST(request: NextRequest) {
       )
     )
 
-    const phonesToLookup = Array.from(
-      new Set(
-        uniquePatients.map(p => p.phone)
-      )
-    )
-
     const existingByChart = new Map<string, any>()
-    const existingByPhone = new Map<string, any>()
 
     // Lookup by chart_number (batches of 100)
     for (let i = 0; i < chartsToLookup.length; i += 100) {
@@ -173,24 +163,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Lookup by phone (batches of 100)
-    for (let i = 0; i < phonesToLookup.length; i += 100) {
-      const batch = phonesToLookup.slice(i, i + 100)
-      const { data, error } = await supabase
-        .from('patients')
-        .select('id, first_name, last_name, phone, email, parent_name, medical_alerts, notes, category, chart_number')
-        .in('phone', batch)
-
-      if (error) {
-        console.error('[bulk-import] Error looking up phones:', error.message)
-      } else if (data) {
-        data.forEach((p: any) => {
-          existingByPhone.set(p.phone, p)
-        })
-      }
-    }
-
-    // 5. Upsert / Smart Merge loop
+    // 5. Upsert / Insert loop
+    //    - Has chart_number AND exists in DB → UPDATE
+    //    - Has chart_number AND not in DB → INSERT
+    //    - No chart_number → always INSERT (multiple patients with same name are allowed)
     const phoneToId = new Map<string, string>()
     const chartToId = new Map<string, string>()
 
@@ -199,16 +175,10 @@ export async function POST(request: NextRequest) {
 
       for (const p of batch) {
         const chartKey = p.chart_number ? p.chart_number.toLowerCase().trim() : null
-        let existing = chartKey ? existingByChart.get(chartKey) : undefined
-
-        // If not found by chart_number, check by phone
-        if (!existing) {
-          existing = existingByPhone.get(p.phone)
-        }
+        const existing = chartKey ? existingByChart.get(chartKey) : undefined
 
         if (existing) {
-          // --- UPDATE EXISTING RECORD ---
-          // Determine best phone to keep: if new row has a real phone and existing had dummy, upgrade!
+          // --- UPDATE EXISTING RECORD (matched by chart_number only) ---
           const phoneToKeep = p.hasRealPhone
             ? p.phone
             : (existing.phone && !existing.phone.startsWith('/-no-phone-') ? existing.phone : p.phone)
@@ -237,11 +207,11 @@ export async function POST(request: NextRequest) {
           } else {
             updatedCount++
             phoneToId.set(p.phone, existing.id)
-            if (phoneToKeep !== p.phone) phoneToId.set(phoneToKeep, existing.id)
             if (p.chart_number) chartToId.set(chartKey!, existing.id)
           }
         } else {
           // --- INSERT NEW RECORD ---
+          // Patients without chart_number always get inserted fresh (no name/phone dedup)
           const insertPayload = {
             first_name: p.first_name,
             last_name: p.last_name,
@@ -261,38 +231,42 @@ export async function POST(request: NextRequest) {
             .single()
 
           if (insertErr) {
-            console.error(`[bulk-import] Insert error for ${p.first_name}:`, insertErr.message)
-            // If phone conflict happened concurrently, attempt an in-place update fallback
+            // Phone unique constraint hit — update phone to a unique dummy and retry
             if (insertErr.code === '23505') {
-              const { data: fallbackExisting } = await supabase
+              const dummyPhone = generateDeterministicNoPhone(
+                p.first_name,
+                p.last_name,
+                p.chart_number,
+                p.parent_name
+              ) + `-${Date.now()}`
+              const retryPayload = { ...insertPayload, phone: dummyPhone }
+              const { data: retryRow, error: retryErr } = await supabase
                 .from('patients')
-                .select('id')
-                .eq('phone', p.phone)
-                .maybeSingle()
-
-              if (fallbackExisting?.id) {
-                await supabase.from('patients').update({
-                  chart_number: p.chart_number,
-                  updated_at: new Date().toISOString()
-                }).eq('id', fallbackExisting.id)
-                phoneToId.set(p.phone, fallbackExisting.id)
-                if (chartKey) chartToId.set(chartKey, fallbackExisting.id)
-                updatedCount++
-                continue
+                .insert(retryPayload)
+                .select('id, phone, chart_number')
+                .single()
+              if (retryErr) {
+                errors.push(`Greška pri unosu (${p.first_name}): ${retryErr.message}`)
+              } else if (retryRow) {
+                insertedCount++
+                phoneToId.set(p.phone, retryRow.id)
+                if (chartKey) chartToId.set(chartKey, retryRow.id)
+                if (chartKey) existingByChart.set(chartKey, retryRow)
               }
+            } else {
+              console.error(`[bulk-import] Insert error for ${p.first_name}:`, insertErr.message)
+              errors.push(`Greška pri unosu (${p.first_name}): ${insertErr.message}`)
             }
-            errors.push(`Greška pri unosu (${p.first_name}): ${insertErr.message}`)
           } else if (newRow) {
             insertedCount++
             phoneToId.set(p.phone, newRow.id)
             if (chartKey) chartToId.set(chartKey, newRow.id)
-            // Cache in memory for subsequent items in this same request
-            existingByPhone.set(p.phone, newRow)
             if (chartKey) existingByChart.set(chartKey, newRow)
           }
         }
       }
     }
+
 
     // 6. Handle appointments if present
     let appointmentsInserted = 0

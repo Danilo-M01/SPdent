@@ -364,8 +364,12 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
     else if (rc.includes('protez') || rc.includes('protet')) category = 'proteza'
   }
 
-  // ── 7. Broj kartona ──────────────────────────────────────────────────────
+  // ── 7. Broj kartona / Broj pacijenta ─────────────────────────────────────
   const chartNumber = find([
+    // "Broj pacijenta" - their actual Excel column name
+    'brojpacijenta', 'brpacijenta', 'pacijentbr', 'pacijentbroj', 'brojpac', 'brpac', 'bpac', 'pacbr',
+    'пацијент', 'бројпацијента', 'брпацијента',
+    // standard chart/karton variants
     'brojkartona', 'brkartona', 'karton', 'brkarton', 'kartonbr', 'kartonbroj',
     'brojkartrona', 'brkartrona', 'kartron', 'brkartron',
     'chart', 'chartnumber', 'chartno', 'chartnum',
