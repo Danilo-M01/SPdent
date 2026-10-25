@@ -378,19 +378,41 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
     'бројкартона', 'бркартона', 'картон', 'картонбр', 'досије', 'матичникартон'
   ])
 
-  // ── 8. Termin / Sledeći pregled / Kontrola i Izabrani doktor ─────────────
+  // ── 8. Datum termina / Sledeći pregled / Kontrola / Zakazivanje ──────────
   const rawDateVal = find([
-    // "Sledeća kontrola" / "Kontrola" — their most common column names
-    'sledecakontroloa', 'sledecakontola', 'sledecakontrol', 'sledećakontrol',
-    'sledecakontroladat', 'kontrola', 'sledecipregled', 'sledećipregled',
-    'sledecitermin', 'sledećitermin', 'termin', 'datum', 'pregled', 'vreme',
-    'datumtermina', 'datumvreme', 'datumivreme', 'sledećidolazak', 'sledecidolazak',
-    'nextvisit', 'nextappointment', 'sledeciposeta', 'narednitermin', 'zakazano',
-    'sledecaposeta', 'zakazanitermin', 'zakazanidatum', 'datumkontrole',
-    'datumsledzegpregleda', 'kontrolnitermin', 'narednjipregled', 'narednakontrola',
-    'sledecikontrolnitermin', 'sledecakontroladat', 'sledecidatum',
-    // Cyrillic
-    'следећиpregled', 'sledecikontrola', 'следецакontrol', 'kontrolnitermin'
+    // === KONTROLA variants ===
+    'kontrola', 'sledecakontroloa', 'sledecakontola', 'sledecakontrol', 'sledećakontrol',
+    'sledecakontroladat', 'narednakontrola', 'sledecakontrola', 'sljedecakontrola',
+    'datumkontrole', 'kontrolnitermin', 'sledecikontrolnitermin', 'sledecidatumkontrole',
+
+    // === SLEDEĆI PREGLED variants ===
+    'sledecpregled', 'sledecpregl', 'sledecipregled', 'sledećipregled',
+    'sljedecpregled', 'sljedecpregl', 'sljedecipregled',
+    'narednjipregled', 'sledecaposeta', 'narednjaposeta', 'narednidolazak',
+    'datumsledzegpregleda', 'datumsledecegpregleda', 'datumpregledpregled',
+
+    // === TERMIN variants ===
+    'sledecitermin', 'sledećitermin', 'sledecitermindat', 'narednitermin',
+    'datumtermina', 'zakazanitermin', 'termindat', 'terminzakazivanje',
+    'sljedecitermin', 'narednijtermin', 'sledecidatum', 'sledecadatum',
+
+    // === ZAKAZIVANJE / ZAKAZANO variants ===
+    'zakazivanje', 'zakazano', 'zakazanidatum', 'zakazanpregled',
+    'datumzakazivanja', 'zakazanakontroloa', 'zakazan', 'zakazanadatum',
+    'zakazanothat', 'zakazanodatum',
+
+    // === DOLAZAK / POSETA variants ===
+    'sledecidolazak', 'sledećidolazak', 'sledecadolazak', 'sledecaposeta', 
+    'sledeciposeta', 'narednidolazak', 'narednadolazak', 'narednjaposeta',
+
+    // === PREGLED (generalno) ===
+    'pregled', 'sledecpregled',
+
+    // === Kratko / opšte ===
+    'datum', 'vreme', 'datumvreme', 'datumivreme', 'termin',
+
+    // === English fallback ===
+    'nextvisit', 'nextappointment', 'appointment', 'appointmentdate', 'visitdate', 'nextdate',
   ])
   const appointmentDate = parseImportedDate(rawDateVal)
 
