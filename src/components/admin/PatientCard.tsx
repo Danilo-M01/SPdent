@@ -43,12 +43,12 @@ function PatientCardComponent({ patient, index }: PatientCardProps) {
           <h3 className="text-[#0F172A] font-bold text-base leading-tight truncate">
             {patient.first_name} {patient.last_name ?? ''}
           </h3>
-          {/* Broj pacijenta / kartona direktno ispod imena */}
+          {/* Broj kartona direktno ispod imena */}
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             {chartNum ? (
               <span className="inline-flex items-center gap-1.5 bg-sky-50 border border-sky-200 text-[#0284C7] text-xs font-semibold px-2.5 py-0.5 rounded-lg shrink-0 shadow-2xs">
                 <FileText size={12} className="text-[#0284C7]" />
-                Karton: <span className="font-bold text-slate-900">#{chartNum}</span>
+                Karton: <span className="font-bold text-slate-900">{chartNum}</span>
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200/80 text-slate-400 text-[11px] font-medium px-2 py-0.5 rounded-lg shrink-0">
