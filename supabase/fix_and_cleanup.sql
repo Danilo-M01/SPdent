@@ -1,17 +1,36 @@
 -- =============================================================================
--- SP DENT — FIX & CLEANUP SCRIPT v1.1 (FIXED)
--- 1. Brise sve test/demo podatke (aaaaaaaa-... UUID-ovi)
--- 2. Brise duplikate pacijenata (isti chart_number ili isti ime bez telefona)
--- 3. Dodaje UNIQUE index na chart_number
--- 4. Kreira upsert_patient_by_chart RPC funkciju za pouzdan import
--- Pokrenite u Supabase SQL Editoru
+-- SP DENT — KOMPLETAN CLEANUP & ZAŠTITA BAZE (SVE U JEDNOM)
+-- Pokrenite ceo ovaj fajl u Supabase SQL Editoru klikom na RUN.
 -- =============================================================================
 
 -- 1. BRISANJE TEST/DEMO PODATAKA (UUID pattern: aaaaaaaa-...)
 DELETE FROM public.patients WHERE id::text LIKE 'aaaaaaaa-%';
 
--- 2. BRISANJE DUPLIKATA pacijenata bez telefona sa istim imenom
--- Cuva NAJSTARIJI zapis, brise novije
+-- 2. PRENOS TERMINA SA DUPLIKATA NA GLAVNOG (NAJSTARIJEG) PACIJENTA
+--    Ovim se osigurava da nijedan zakazani termin ne bude obrisan.
+WITH kept_patients AS (
+  SELECT DISTINCT ON (LOWER(TRIM(first_name)), COALESCE(LOWER(TRIM(last_name)), ''))
+    id, first_name, last_name
+  FROM public.patients
+  WHERE phone LIKE '/-no-phone-%'
+  ORDER BY LOWER(TRIM(first_name)), COALESCE(LOWER(TRIM(last_name)), ''), created_at ASC
+),
+duplicate_patients AS (
+  SELECT p.id AS dup_id, k.id AS keep_id
+  FROM public.patients p
+  JOIN kept_patients k
+    ON LOWER(TRIM(p.first_name)) = LOWER(TRIM(k.first_name))
+   AND COALESCE(LOWER(TRIM(p.last_name)), '') = COALESCE(LOWER(TRIM(k.last_name)), '')
+  WHERE p.phone LIKE '/-no-phone-%'
+    AND p.id <> k.id
+)
+UPDATE public.appointments a
+SET patient_id = d.keep_id
+FROM duplicate_patients d
+WHERE a.patient_id = d.dup_id;
+
+-- 3. BRISANJE DUPLIKATA pacijenata bez telefona sa istim imenom
+--    Čuva najstarijeg (originalnog) pacijenta, a briše nagomilane duplikate iz ranijih uvoza.
 DELETE FROM public.patients
 WHERE id IN (
   SELECT p.id FROM public.patients p
@@ -19,14 +38,14 @@ WHERE id IN (
     AND EXISTS (
       SELECT 1 FROM public.patients p2
       WHERE p2.phone LIKE '/-no-phone-%'
-        AND p2.first_name = p.first_name
-        AND (p2.last_name = p.last_name OR (p2.last_name IS NULL AND p.last_name IS NULL))
+        AND LOWER(TRIM(p2.first_name)) = LOWER(TRIM(p.first_name))
+        AND COALESCE(LOWER(TRIM(p2.last_name)), '') = COALESCE(LOWER(TRIM(p.last_name)), '')
         AND p2.id <> p.id
         AND p2.created_at < p.created_at
     )
 );
 
--- 3. BRISANJE DUPLIKATA pacijenata sa istim chart_number
+-- 4. BRISANJE DUPLIKATA pacijenata sa istim brojem kartona (ako ih ima)
 DELETE FROM public.patients
 WHERE id IN (
   SELECT p.id FROM public.patients p
@@ -38,7 +57,7 @@ WHERE id IN (
     )
 );
 
--- 4. UNIQUE INDEX NA chart_number (case-insensitive)
+-- 5. UNIQUE ZAŠTITNI INDEKS: Baza od sada na nivou sistema sprečava unos istog kartona
 DROP INDEX IF EXISTS patients_chart_number_unique_idx;
 CREATE UNIQUE INDEX patients_chart_number_unique_idx
   ON public.patients (LOWER(TRIM(chart_number)))
@@ -47,92 +66,3 @@ CREATE UNIQUE INDEX patients_chart_number_unique_idx
 DROP INDEX IF EXISTS patients_chart_number_idx;
 CREATE INDEX IF NOT EXISTS patients_chart_number_idx
   ON public.patients(chart_number) WHERE chart_number IS NOT NULL;
-
--- 5. RPC FUNKCIJA za pouzdan import bez duplikata
--- VAZNO: $$ su obavezni delimiteri za PL/pgSQL telo funkcije!
-CREATE OR REPLACE FUNCTION public.upsert_patient_by_chart(
-  p_first_name     TEXT,
-  p_last_name      TEXT,
-  p_phone          TEXT,
-  p_email          TEXT,
-  p_parent_name    TEXT,
-  p_medical_alerts TEXT,
-  p_notes          TEXT,
-  p_category       TEXT,
-  p_chart_number   TEXT
-)
-RETURNS TABLE(id UUID, action TEXT)
-LANGUAGE plpgsql
-SECURITY INVOKER
-AS $$
-DECLARE
-  v_existing_id    UUID;
-  v_existing_phone TEXT;
-BEGIN
-  -- Pokusaj da nadje postojeceg pacijenta po chart_number
-  SELECT patients.id, patients.phone
-    INTO v_existing_id, v_existing_phone
-    FROM public.patients
-   WHERE LOWER(TRIM(patients.chart_number)) = LOWER(TRIM(p_chart_number))
-   LIMIT 1;
-
-  IF v_existing_id IS NOT NULL THEN
-    -- Azuriraj postojeceg pacijenta (samo prazna polja se prepisuju)
-    UPDATE public.patients SET
-      first_name     = COALESCE(NULLIF(TRIM(p_first_name), ''), patients.first_name),
-      last_name      = COALESCE(NULLIF(TRIM(COALESCE(p_last_name, '')), ''), patients.last_name),
-      phone          = CASE
-                         WHEN p_phone IS NOT NULL
-                          AND p_phone NOT LIKE '/-no-phone-%'
-                          AND p_phone <> '/'
-                         THEN p_phone
-                         ELSE patients.phone
-                       END,
-      email          = COALESCE(NULLIF(TRIM(COALESCE(p_email, '')), ''), patients.email),
-      parent_name    = COALESCE(NULLIF(TRIM(COALESCE(p_parent_name, '')), ''), patients.parent_name),
-      medical_alerts = COALESCE(NULLIF(TRIM(COALESCE(p_medical_alerts, '')), ''), patients.medical_alerts),
-      notes          = CASE
-                         WHEN p_notes IS NOT NULL AND TRIM(p_notes) <> '' THEN
-                           CASE
-                             WHEN patients.notes IS NOT NULL
-                              AND patients.notes NOT LIKE '%' || TRIM(p_notes) || '%'
-                             THEN TRIM(p_notes) || ' | ' || patients.notes
-                             ELSE COALESCE(patients.notes, TRIM(p_notes))
-                           END
-                         ELSE patients.notes
-                       END,
-      category       = CASE
-                         WHEN p_category IS NOT NULL AND p_category <> 'regular'
-                         THEN p_category
-                         ELSE patients.category
-                       END,
-      updated_at     = NOW()
-    WHERE patients.id = v_existing_id;
-
-    RETURN QUERY SELECT v_existing_id, 'updated'::TEXT;
-
-  ELSE
-    -- Unesi novog pacijenta
-    INSERT INTO public.patients (
-      first_name, last_name, phone, email,
-      parent_name, medical_alerts, notes, category, chart_number
-    )
-    VALUES (
-      COALESCE(NULLIF(TRIM(p_first_name), ''), 'Nepoznato'),
-      NULLIF(TRIM(COALESCE(p_last_name, '')), ''),
-      p_phone,
-      NULLIF(TRIM(COALESCE(p_email, '')), ''),
-      NULLIF(TRIM(COALESCE(p_parent_name, '')), ''),
-      NULLIF(TRIM(COALESCE(p_medical_alerts, '')), ''),
-      NULLIF(TRIM(COALESCE(p_notes, '')), ''),
-      COALESCE(NULLIF(p_category, ''), 'regular'),
-      NULLIF(TRIM(p_chart_number), '')
-    )
-    RETURNING patients.id INTO v_existing_id;
-
-    RETURN QUERY SELECT v_existing_id, 'inserted'::TEXT;
-  END IF;
-END;
-$$;
-
-GRANT EXECUTE ON FUNCTION public.upsert_patient_by_chart(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT) TO authenticated;

@@ -40,27 +40,28 @@ function PatientCardComponent({ patient, index }: PatientCardProps) {
       {/* Name + badges row */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-[#0F172A] font-semibold text-base leading-tight truncate">
-              {patient.first_name} {patient.last_name ?? ''}
-            </h3>
+          <h3 className="text-[#0F172A] font-bold text-base leading-tight truncate">
+            {patient.first_name} {patient.last_name ?? ''}
+          </h3>
+          {/* Broj pacijenta / kartona direktno ispod imena */}
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             {chartNum ? (
-              <span className="inline-flex items-center gap-1 bg-sky-50 border border-sky-200 text-[#0284C7] text-xs font-bold px-2 py-0.5 rounded-lg shrink-0 shadow-xs">
-                <FileText size={11} className="text-[#0284C7]" />
-                Karton: #{chartNum}
+              <span className="inline-flex items-center gap-1.5 bg-sky-50 border border-sky-200 text-[#0284C7] text-xs font-semibold px-2.5 py-0.5 rounded-lg shrink-0 shadow-2xs">
+                <FileText size={12} className="text-[#0284C7]" />
+                Broj pacijenta: <span className="font-bold text-slate-900">#{chartNum}</span>
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200 text-slate-400 text-[11px] font-medium px-2 py-0.5 rounded-lg shrink-0">
+              <span className="inline-flex items-center gap-1 bg-slate-50 border border-slate-200/80 text-slate-400 text-[11px] font-medium px-2 py-0.5 rounded-lg shrink-0">
                 <FileText size={10} className="text-slate-350" />
-                Bez kartona
+                Broj pacijenta: nije unet
+              </span>
+            )}
+            {patient.parent_name && (
+              <span className="text-slate-500 text-xs truncate">
+                • Roditelj: {patient.parent_name}
               </span>
             )}
           </div>
-          {patient.parent_name && (
-            <p className="text-slate-500 text-xs mt-0.5 truncate">
-              Roditelj: {patient.parent_name}
-            </p>
-          )}
         </div>
 
         <div className="flex flex-col gap-1.5 items-end shrink-0">

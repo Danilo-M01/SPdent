@@ -147,39 +147,69 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   const NAME_RE  = /^[A-Za-zÀ-žČčĆćŠšŽžĐđ][A-Za-zÀ-žČčĆćŠšŽžĐđ\s\-'\.]{1,59}$/
 
-  // ── Detect headerless spreadsheets (__EMPTY columns from SheetJS) ─────────
-  // Pattern discovered from real data:
-  //   Column 0 (__EMPTY or first unnamed): Last name (Prezime)
-  //   __EMPTY_1: First name (Ime)
-  //   __EMPTY_2: Birth year (Godište)
-  //   __EMPTY_3: (varies)
-  //   __EMPTY_4: Phone number
-  const hasEmptyColumns = Object.keys(row).some(k => k.startsWith('__EMPTY'))
-  if (hasEmptyColumns) {
-    // Get values from the known column positions
-    const col0Key = Object.keys(row).find(k => k === '__EMPTY') || Object.keys(row)[0]
+  // ── Detect truly headerless spreadsheets (__EMPTY columns from SheetJS) ─────────
+  const rowKeys = Object.keys(row)
+  const emptyKeysCount = rowKeys.filter(k => k.startsWith('__EMPTY')).length
+  // Headerless only if no obvious header like ime/prezime/telefon/karton exists AND most keys are __EMPTY
+  const hasNamedHeaders = rowKeys.some(k => {
+    const nk = k.toLowerCase().replace(/[\s\.\-_\/\(\)\[\]#*:;,]+/g, '')
+    return nk.includes('ime') || nk.includes('prezime') || nk.includes('telefon') || 
+           nk.includes('karton') || nk.includes('pacijent') || nk.includes('broj')
+  })
+  const isTrulyHeaderless = !hasNamedHeaders && (emptyKeysCount > 0 && emptyKeysCount >= Math.ceil(rowKeys.length / 2))
+
+  if (isTrulyHeaderless) {
+    // Get values from column positions
+    const col0Key = rowKeys.find(k => k === '__EMPTY') || rowKeys[0]
     const col0Val = String(row[col0Key] ?? '').trim()
     const col1Val = String(row['__EMPTY_1'] ?? '').trim()
     const col2Val = String(row['__EMPTY_2'] ?? '').trim()
+    const col3Val = String(row['__EMPTY_3'] ?? '').trim()
     const col4Val = String(row['__EMPTY_4'] ?? '').trim()
 
-    // Determine last name (col0) and first name (col1)
-    let firstNameRaw = col1Val || col0Val || 'Nepoznato'
-    let lastNameRaw: string | null = col1Val ? col0Val : null
+    // Find phone across ANY column by pattern
+    let phone = ''
+    let phoneColKey = ''
+    for (const key of rowKeys) {
+      const v = String(row[key] ?? '').trim()
+      if (PHONE_RE.test(v) && v.replace(/[^0-9]/g, '').length >= 6) {
+        phone = v
+        phoneColKey = key
+        break
+      }
+    }
+    if (!phone && col4Val) {
+      phone = col4Val
+      phoneColKey = '__EMPTY_4'
+    }
 
-    // Strip any numbers/digits from first and last names
+    // Check if col0 is a chart number / patient number (e.g. 101, K-12, #45)
+    let chartNum: string | null = null
+    let firstNameRaw = ''
+    let lastNameRaw: string | null = null
+
+    const isCol0Chart = /^(?:[kKdD]-?)?\d{1,7}(?:\/\d{2,4})?$/.test(col0Val)
+    if (isCol0Chart && col0Val) {
+      chartNum = col0Val.replace(/^#+/, '')
+      // col1 is last name, col2 is first name
+      lastNameRaw = col1Val || null
+      firstNameRaw = col2Val || 'Nepoznato'
+    } else {
+      // col0 is last name, col1 is first name
+      firstNameRaw = col1Val || col0Val || 'Nepoznato'
+      lastNameRaw = col1Val ? col0Val : null
+    }
+
+    // Strip digits from names
     let firstName = firstNameRaw.replace(/\d+/g, '').trim()
     let lastName = lastNameRaw ? lastNameRaw.replace(/\d+/g, '').trim() : null
 
-    // Fallback if firstName became empty after stripping digits (e.g. it was just a number "2")
     if (!firstName) {
       firstName = lastName || 'Nepoznato'
       lastName = null
     }
 
-    // Normalize phone from col4
-    let phone = col4Val
-    // Quick local normalization (strip non-digit except +)
+    // Normalize phone
     if (phone) {
       let cleaned = phone.replace(/[^0-9+]/g, '')
       if (cleaned.startsWith('00')) cleaned = '+' + cleaned.substring(2)
@@ -193,10 +223,12 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
 
     // Build notes from extra data
     const notesParts: string[] = []
-    if (col2Val) notesParts.push(`Godište: ${col2Val}`)
+    if (col2Val && !isCol0Chart && /^\d{4}$/.test(col2Val)) {
+      notesParts.push(`Godište: ${col2Val}`)
+    }
 
-    // Collect any other __EMPTY_N columns we haven't used
-    const usedKeys = new Set([col0Key, '__EMPTY_1', '__EMPTY_2', '__EMPTY_4'])
+    // Collect any other columns we haven't used
+    const usedKeys = new Set([col0Key, '__EMPTY_1', '__EMPTY_2', phoneColKey])
     for (const key in row) {
       if (!usedKeys.has(key)) {
         const val = String(row[key] ?? '').trim()
@@ -206,7 +238,7 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
 
     let _generatedPhone: string | undefined
     if (!phone || phone === '/' || phone.startsWith('/')) {
-      _generatedPhone = generateDeterministicNoPhone(firstName, lastName, null, null)
+      _generatedPhone = generateDeterministicNoPhone(firstName, lastName, chartNum, null)
       phone = '/'
     }
 
@@ -219,7 +251,7 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
       medical_alerts: null,
       notes: notesParts.length > 0 ? notesParts.join(' | ') : null,
       category: 'regular',
-      chart_number: null,
+      chart_number: chartNum ? chartNum.trim() : null,
       appointment_date: null,
       doctor_name: null,
       _generatedPhone,
@@ -365,18 +397,30 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
   }
 
   // ── 7. Broj kartona / Broj pacijenta ─────────────────────────────────────
-  const chartNumber = find([
-    // "Broj pacijenta" - their actual Excel column name
-    'brojpacijenta', 'brpacijenta', 'pacijentbr', 'pacijentbroj', 'brojpac', 'brpac', 'bpac', 'pacbr',
-    'пацијент', 'бројпацијента', 'брпацијента',
-    // standard chart/karton variants
+  let chartNumber = find([
+    // Primarni nazivi za broj kartona / broj pacijenta
+    'brojpacijenta', 'brpacijenta', 'pacijentbr', 'pacijentbroj', 'brojpac', 'brpac', 'bpac', 'pacbr', 'brojpacijent', 'brpacijent',
+    'пацијент', 'бројпацијента', 'брпацијента', 'пацијентбр', 'пацијентброј',
     'brojkartona', 'brkartona', 'karton', 'brkarton', 'kartonbr', 'kartonbroj',
-    'brojkartrona', 'brkartrona', 'kartron', 'brkartron',
-    'chart', 'chartnumber', 'chartno', 'chartnum',
-    'dosije', 'brojdosijea', 'brdosijea', 'maticnikarton', 'matičnikarton', 'brkart',
+    'brojkartrona', 'brkartrona', 'kartron', 'brkartron', 'brojkart', 'brkart',
+    'chart', 'chartnumber', 'chartno', 'chartnum', 'patientnumber', 'patientno',
+    'dosije', 'brojdosijea', 'brdosijea', 'maticnikarton', 'matičnikarton',
     'zdravstvenikarton', 'brojzdravstvenogkartona', 'kartonski', 'kartonskibroj',
-    'бројкартона', 'бркартона', 'картон', 'картонбр', 'досије', 'матичникартон'
+    'бројкартона', 'бркартона', 'картон', 'картонбр', 'картонброј', 'досије', 'матичникартон'
   ])
+
+  // Fallback: Ako u fajlu kolona glasi samo "Broj", "Br.", "Br", "Šifra", "R.br" i sl.
+  if (!chartNumber) {
+    chartNumber = find([
+      'broj', 'br', 'sifra', 'šifra', 'sifrapacijenta', 'šifrapacijenta',
+      'rednibrojpacijenta', 'rbr', 'rednibroj', 'rednibr', 'brojosobe',
+      'број', 'бр', 'шифра', 'рбр'
+    ])
+  }
+
+  if (chartNumber) {
+    chartNumber = chartNumber.replace(/^#+/, '').trim()
+  }
 
   // ── 8. Datum termina / Sledeći pregled / Kontrola / Zakazivanje ──────────
   const rawDateVal = find([
@@ -452,10 +496,9 @@ function mapImportedRow(row: Record<string, unknown>): ImportPatient & { _genera
   if (dug) notesParts.push(`Dug iz starog sistema: ${dug} RSD`)
 
   const pacijentId = find([
-    'pacijentid','id','sifra','šifra','broj','rbr','rednibr',
-    'rednibrojpacijenta','matbr','maticnibroj','jmbg'
+    'pacijentid', 'id', 'matbr', 'maticnibroj', 'jmbg'
   ])
-  if (pacijentId) notesParts.push(`ID iz starog sistema: ${pacijentId}`)
+  if (pacijentId) notesParts.push(`Matični broj / ID: ${pacijentId}`)
 
   // ── 9. Sve preostale neprepoznate kolone → notes ──────────────────────────
   const extraFields: string[] = []
@@ -604,23 +647,56 @@ export default function ExcelImporter({ onClose, onImportSuccess }: ExcelImporte
         }
 
         // Deduplicate rows within the file:
-        // - Rows with same chart_number → one patient (merge)
-        // - Rows without chart_number → ALWAYS keep all (different people, even same name)
-        // NOTE: We do NOT dedup by phone — clinic has many patients with same name/no phone
-        const seenCharts = new Map<string, typeof cleanedData[0]>()
+        // - Po broju kartona ako postoji
+        // - Po telefonu + imenu ako ima telefon
+        // - Po imenu + prezimenu (+ roditelj) ako nema telefon (isti pacijent ima više poseta u fajlu)
+        const seenKeys = new Map<string, typeof cleanedData[0]>()
         const dedupedData: typeof cleanedData = []
+
         for (const row of cleanedData) {
+          let dedupKey: string
           const chartKey = row.chart_number ? row.chart_number.toLowerCase().trim() : null
+          const realPhone = row.phone && !row.phone.startsWith('/') ? row.phone.trim() : null
+          const fName = (row.first_name || '').toLowerCase().trim()
+          const lName = (row.last_name || '').toLowerCase().trim()
+          const pName = (row.parent_name || '').toLowerCase().trim()
 
-          // Skip if already seen by chart_number (same patient, same row)
-          if (chartKey && seenCharts.has(chartKey)) continue
+          if (chartKey) {
+            dedupKey = `chart:${chartKey}`
+          } else if (realPhone) {
+            dedupKey = `phone:${realPhone}:${fName}_${lName}`
+          } else {
+            dedupKey = `name:${fName}_${lName}_${pName}`
+          }
 
-          if (chartKey) seenCharts.set(chartKey, row)
+          if (seenKeys.has(dedupKey)) {
+            // Spoji napomene i termine ako već postoji taj pacijent u istom fajlu
+            const existing = seenKeys.get(dedupKey)!
+            if (row.notes) {
+              if (existing.notes && !existing.notes.includes(row.notes)) {
+                existing.notes = `${existing.notes} | ${row.notes}`
+              } else if (!existing.notes) {
+                existing.notes = row.notes
+              }
+            }
+            if (!existing.email && row.email) existing.email = row.email
+            if (!existing.parent_name && row.parent_name) existing.parent_name = row.parent_name
+            if (!existing.medical_alerts && row.medical_alerts) existing.medical_alerts = row.medical_alerts
+            if (!existing.chart_number && row.chart_number) existing.chart_number = row.chart_number
+            if (!existing.appointment_date && row.appointment_date) {
+              existing.appointment_date = row.appointment_date
+              existing.doctor_name = row.doctor_name
+            }
+            continue
+          }
+
+          seenKeys.set(dedupKey, row)
           dedupedData.push(row)
         }
+
         const removedCount = cleanedData.length - dedupedData.length
         if (removedCount > 0) {
-          console.log(`[ExcelImporter] Removed ${removedCount} duplicate rows (same chart_number) out of ${cleanedData.length}`)
+          console.log(`[ExcelImporter] Spojeno ${removedCount} višestrukih poseta istog pacijenta u jedan zapis. Ukupno jedinstvenih: ${dedupedData.length}`)
         }
         
         setDataPreview(dedupedData)

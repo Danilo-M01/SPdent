@@ -108,3 +108,75 @@ export function sanitizeNumeric(input: unknown): number {
   // Cap at a reasonable maximum to prevent overflow
   return Math.min(Math.max(num, 0), 9_999_999.99)
 }
+
+/**
+ * Transliterates Serbian Latin and Cyrillic characters into basic ASCII Latin.
+ * Preserves phonetics: č, ć -> c, š -> s, ž -> z, đ -> dj, etc.
+ */
+export function transliterateSerbian(input: unknown): string {
+  if (!input) return ''
+  const str = String(input)
+  const map: Record<string, string> = {
+    'č': 'c', 'ć': 'c', 'š': 's', 'ž': 'z', 'đ': 'dj',
+    'Č': 'c', 'Ć': 'c', 'Š': 's', 'Ž': 'z', 'Đ': 'dj',
+    'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'ђ': 'dj', 'е': 'e', 'ж': 'z',
+    'з': 'z', 'и': 'i', 'ј': 'j', 'к': 'k', 'л': 'l', 'љ': 'lj', 'м': 'm', 'н': 'n',
+    'њ': 'nj', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'ћ': 'c', 'у': 'u',
+    'ф': 'f', 'х': 'h', 'ц': 'c', 'ч': 'c', 'џ': 'dz', 'ш': 's',
+    'А': 'a', 'Б': 'b', 'В': 'v', 'Г': 'g', 'Д': 'd', 'Ђ': 'dj', 'Е': 'e', 'Ж': 'z',
+    'З': 'z', 'И': 'i', 'Ј': 'j', 'К': 'k', 'Л': 'l', 'Љ': 'lj', 'М': 'm', 'Н': 'n',
+    'Њ': 'nj', 'О': 'o', 'П': 'p', 'Р': 'r', 'С': 's', 'Т': 't', 'Ћ': 'c', 'У': 'u',
+    'Ф': 'f', 'Х': 'h', 'Ц': 'c', 'Ч': 'c', 'Џ': 'dz', 'Ш': 's',
+  }
+  const pattern = new RegExp(Object.keys(map).join('|'), 'g')
+  return str.replace(pattern, char => map[char] || char)
+}
+
+/**
+ * Generates a clean deterministic phone placeholder for patients without phone numbers.
+ * Accurately transliterates Serbian letters to prevent slug loss or collisions.
+ */
+export function generateDeterministicNoPhone(
+  firstName: string,
+  lastName?: string | null,
+  chartNumber?: string | null,
+  parentName?: string | null
+): string {
+  const raw = `${firstName} ${lastName ?? ''} ${chartNumber ?? ''} ${parentName ?? ''}`
+  const ascii = transliterateSerbian(raw)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]/g, '')
+  let hash = 0
+  for (let i = 0; i < ascii.length; i++) {
+    hash = ((hash << 5) - hash) + ascii.charCodeAt(i)
+    hash |= 0
+  }
+  const hex = Math.abs(hash).toString(36)
+  const slug = ascii.substring(0, 10) || 'anon'
+  return `/-no-phone-${slug}-${hex}`
+}
+
+/**
+ * Returns a display-friendly phone string, masking internal tokens like `/-no-phone-` or `-deljen-...`.
+ */
+export function formatPhoneDisplay(phone?: string | null): string {
+  if (!phone || phone === '/' || phone.startsWith('/')) return '/'
+  if (phone.includes('-deljen-')) {
+    const base = phone.split('-deljen-')[0]
+    return `${base} (deljen)`
+  }
+  return phone
+}
+
+/**
+ * Returns a clean callable telephone string for tel: links.
+ */
+export function getCallablePhone(phone?: string | null): string {
+  if (!phone || phone === '/' || phone.startsWith('/')) return ''
+  if (phone.includes('-deljen-')) {
+    return phone.split('-deljen-')[0]
+  }
+  return phone
+}
+

@@ -8,6 +8,8 @@ import {
   sanitizeText,
   sanitizePhone,
   sanitizeEmail,
+  generateDeterministicNoPhone,
+  formatPhoneDisplay,
 } from '@/lib/sanitize'
 
 // ---------------------------------------------------------------------------
@@ -115,12 +117,110 @@ export async function signOut(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// PATIENT ACTIONS
+// PATIENT ACTIONS & DEDUPLICATION
 // ---------------------------------------------------------------------------
 
+export type DuplicateCheckResult = {
+  chartConflict?: { id: string; name: string; chart_number: string } | null
+  phoneConflict?: { id: string; name: string; phone: string; isSameName: boolean } | null
+  nameConflict?: { id: string; name: string; phone: string; chart_number?: string | null } | null
+}
+
 /**
- * Add a new patient to the database.
- * All fields are sanitized before insertion.
+ * Checks for patient duplicates in real time (by chart_number, phone, or exact full name).
+ * Can be called client-side before form submission to provide immediate visual warnings.
+ */
+export async function checkPatientDuplicates(query: {
+  firstName?: string
+  lastName?: string
+  phone?: string
+  chartNumber?: string
+  excludePatientId?: string
+}): Promise<DuplicateCheckResult> {
+  try {
+    const supabase = await createClient()
+    const result: DuplicateCheckResult = {}
+
+    const fName = sanitizeText(query.firstName)
+    const lName = sanitizeText(query.lastName)
+    const rawChart = sanitizeText(query.chartNumber)
+    const rawPhone = String(query.phone || '').trim()
+    const sanitizedPhone = sanitizePhone(rawPhone)
+    const isRealPhone = sanitizedPhone && sanitizedPhone !== '/' && !sanitizedPhone.startsWith('/')
+
+    // 1. Provera broja kartona (tačno podudaranje)
+    if (rawChart) {
+      let q = supabase
+        .from('patients')
+        .select('id, first_name, last_name, chart_number')
+        .eq('chart_number', rawChart)
+      if (query.excludePatientId) q = q.neq('id', query.excludePatientId)
+      const { data: chartMatch } = await q.maybeSingle()
+      if (chartMatch) {
+        result.chartConflict = {
+          id: chartMatch.id,
+          name: `${chartMatch.first_name} ${chartMatch.last_name || ''}`.trim(),
+          chart_number: chartMatch.chart_number || rawChart,
+        }
+      }
+    }
+
+    // 2. Provera broja telefona
+    if (isRealPhone) {
+      let q = supabase
+        .from('patients')
+        .select('id, first_name, last_name, phone, chart_number')
+        .eq('phone', sanitizedPhone)
+      if (query.excludePatientId) q = q.neq('id', query.excludePatientId)
+      const { data: phoneMatch } = await q.maybeSingle()
+      if (phoneMatch) {
+        const isSameName =
+          Boolean(fName) &&
+          phoneMatch.first_name.trim().toLowerCase() === fName.toLowerCase() &&
+          (!lName || (phoneMatch.last_name || '').trim().toLowerCase() === lName.toLowerCase())
+
+        result.phoneConflict = {
+          id: phoneMatch.id,
+          name: `${phoneMatch.first_name} ${phoneMatch.last_name || ''}`.trim(),
+          phone: formatPhoneDisplay(phoneMatch.phone),
+          isSameName,
+        }
+      }
+    }
+
+    // 3. Provera duplikata po tačnom imenu i prezimenu
+    if (fName.length >= 2 && lName.length >= 2) {
+      let q = supabase
+        .from('patients')
+        .select('id, first_name, last_name, phone, chart_number')
+        .ilike('first_name', fName)
+        .ilike('last_name', lName)
+      if (query.excludePatientId) q = q.neq('id', query.excludePatientId)
+      const { data: nameMatches } = await q.limit(1)
+      if (nameMatches && nameMatches.length > 0) {
+        const m = nameMatches[0]
+        result.nameConflict = {
+          id: m.id,
+          name: `${m.first_name} ${m.last_name || ''}`.trim(),
+          phone: formatPhoneDisplay(m.phone),
+          chart_number: m.chart_number,
+        }
+      }
+    }
+
+    return result
+  } catch (err) {
+    console.error('[checkPatientDuplicates] Error:', err)
+    return {}
+  }
+}
+
+/**
+ * Add a new patient to the database with thorough validation and deduplication.
+ * - Prevents duplicate chart numbers
+ * - Prevents exact duplicate patient profiles
+ * - Supports shared family phones (with explicit confirmation)
+ * - Uses deterministic identification for patients without phone numbers
  */
 export async function addPatient(
   _prevState: ActionResult | null,
@@ -129,7 +229,8 @@ export async function addPatient(
   try {
     const firstName = sanitizeText(formData.get('first_name'))
     const lastName = sanitizeText(formData.get('last_name'))
-    let phone = sanitizePhone(formData.get('phone'))
+    const rawPhone = String(formData.get('phone') ?? '').trim()
+    let phone = sanitizePhone(rawPhone)
     const email = sanitizeEmail(formData.get('email'))
     const parentName = sanitizeText(formData.get('parent_name'))
     const medicalAlerts = sanitizeText(formData.get('medical_alerts'))
@@ -141,24 +242,118 @@ export async function addPatient(
     const category = sanitizeText(formData.get('category')) || 'regular'
     const chartNumber = sanitizeText(formData.get('chart_number'))
 
-    // Systemic anamnesis booleans — checkboxes send 'true' string when checked
+    // Systemic anamnesis booleans
     const hasHypertension    = formData.get('has_hypertension') === 'true'
     const hasDiabetes        = formData.get('has_diabetes') === 'true'
     const takesAnticoagulants = formData.get('takes_anticoagulants') === 'true'
     const penicillinAllergy  = formData.get('penicillin_allergy') === 'true'
     const consentSigned      = formData.get('consent_signed') === 'true'
 
-    if (!firstName) return { success: false, error: 'Ime je obavezno.' }
-    
-    // If phone is missing, empty, or '/', generate a unique key starting with '/-no-phone-'
-    if (!phone || phone === '/' || phone.startsWith('/')) {
-      phone = `/-no-phone-${Math.random().toString(36).substring(2, 10)}`
+    if (!firstName) return { success: false, error: 'Ime je obavezno polje.' }
+
+    // Provera ispravnosti telefona: ako je nešto uneto (a nije '/'), a sanitizePhone je odbacio
+    if (rawPhone && rawPhone !== '/' && phone === '/') {
+      return {
+        success: false,
+        error: 'Broj telefona nije ispravan (mora sadržati bar 6 cifara). Ostavite prazno ili unesite "/" ako pacijent nema telefon.'
+      }
+    }
+
+    const supabase = await createClient()
+
+    // 1. Provera da li broj kartona već postoji
+    if (chartNumber) {
+      const { data: existingChart } = await supabase
+        .from('patients')
+        .select('id, first_name, last_name, chart_number')
+        .eq('chart_number', chartNumber)
+        .maybeSingle()
+
+      if (existingChart) {
+        return {
+          success: false,
+          error: `Broj kartona "${chartNumber}" već koristi pacijent ${existingChart.first_name} ${existingChart.last_name || ''}. Unesite drugi broj kartona.`
+        }
+      }
+    }
+
+    const isRealPhone = phone && phone !== '/' && !phone.startsWith('/')
+    const isSharedPhone = formData.get('is_shared_phone') === 'true'
+
+    if (isRealPhone) {
+      // 2. Provera telefona
+      const { data: existingWithPhone } = await supabase
+        .from('patients')
+        .select('id, first_name, last_name, chart_number')
+        .eq('phone', phone)
+        .maybeSingle()
+
+      if (existingWithPhone) {
+        const isExactSameName =
+          existingWithPhone.first_name.trim().toLowerCase() === firstName.trim().toLowerCase() &&
+          (existingWithPhone.last_name || '').trim().toLowerCase() === lastName.trim().toLowerCase()
+
+        if (isExactSameName) {
+          return {
+            success: false,
+            error: `Pacijent "${existingWithPhone.first_name} ${existingWithPhone.last_name || ''}" sa ovim brojem telefona već postoji u bazi${existingWithPhone.chart_number ? ` (Karton #${existingWithPhone.chart_number})` : ''}.`
+          }
+        }
+
+        // Različito ime sa istim telefonom (npr. dete i roditelj)
+        if (!isSharedPhone) {
+          return {
+            success: false,
+            error: `Ovaj broj telefona već koristi pacijent: ${existingWithPhone.first_name} ${existingWithPhone.last_name || ''}. Ako je u pitanju član porodice sa istim telefonom, označite opciju "Član porodice / deljen telefon".`
+          }
+        }
+
+        // Član porodice potvrđen: sufiks samo od slova da ne kvari cifre u pretrazi
+        const famKey = Math.random().toString(36).replace(/[^a-z]/g, '').substring(0, 4) || 'fam'
+        phone = `${phone}-deljen-${famKey}`
+      }
+    } else {
+      // Pacijent bez telefona: generišemo deterministički ključ sa transliteracijom
+      const detPhone = generateDeterministicNoPhone(firstName, lastName, chartNumber, parentName)
+      const { data: existingNoPhone } = await supabase
+        .from('patients')
+        .select('id, first_name, last_name, chart_number')
+        .eq('phone', detPhone)
+        .maybeSingle()
+
+      if (existingNoPhone) {
+        return {
+          success: false,
+          error: `Pacijent "${existingNoPhone.first_name} ${existingNoPhone.last_name || ''}" bez telefona već postoji u bazi${existingNoPhone.chart_number ? ` (Karton #${existingNoPhone.chart_number})` : ''}.`
+        }
+      }
+      phone = detPhone
+    }
+
+    // 3. Provera duplikata po imenu i prezimenu (upozorenje na imenjaka)
+    if (firstName && lastName) {
+      const allowHomonym = formData.get('allow_homonym') === 'true'
+      if (!allowHomonym) {
+        const { data: sameNameList } = await supabase
+          .from('patients')
+          .select('id, first_name, last_name, phone, chart_number')
+          .ilike('first_name', firstName)
+          .ilike('last_name', lastName)
+          .limit(1)
+
+        if (sameNameList && sameNameList.length > 0) {
+          const m = sameNameList[0]
+          return {
+            success: false,
+            error: `Pacijent sa istim imenom i prezimenom već postoji: "${m.first_name} ${m.last_name}" (Telefon: ${formatPhoneDisplay(m.phone)}${m.chart_number ? `, Karton: #${m.chart_number}` : ''}). Ako je ovo druga osoba istog imena, označite "Potvrdi unos (imenjak)".`
+          }
+        }
+      }
     }
 
     const validCategories = ['regular', 'implant', 'proteza']
     const safeCategory = validCategories.includes(category) ? category : 'regular'
 
-    const supabase = await createClient()
     const { data, error } = await supabase.from('patients').insert({
       first_name: firstName,
       last_name: lastName || null,
@@ -179,7 +374,7 @@ export async function addPatient(
     if (error) {
       console.error('[addPatient] DB Error:', error.message)
       if (error.message.includes('unique') || error.code === '23505') {
-        return { success: false, error: 'Pacijent sa ovim telefonom već postoji.' }
+        return { success: false, error: 'Podatak koji unosite (broj telefona ili kartona) već postoji kod drugog pacijenta.' }
       }
       return { success: false, error: 'Greška pri dodavanju pacijenta.' }
     }
@@ -193,7 +388,7 @@ export async function addPatient(
 }
 
 /**
- * Update patient information.
+ * Update patient information with chart number and phone collision prevention.
  */
 export async function updatePatient(
   patientId: string,
@@ -203,12 +398,29 @@ export async function updatePatient(
   try {
     const validCategories = ['regular', 'implant', 'proteza']
     const rawCategory = sanitizeText(formData.get('category')) || 'regular'
+    const newChartNumber = sanitizeText(formData.get('chart_number')) || null
+    const supabase = await createClient()
+
+    // 1. Provera broja kartona kod izmene
+    if (newChartNumber) {
+      const { data: chartMatch } = await supabase
+        .from('patients')
+        .select('id, first_name, last_name')
+        .eq('chart_number', newChartNumber)
+        .neq('id', patientId)
+        .maybeSingle()
+
+      if (chartMatch) {
+        return {
+          success: false,
+          error: `Broj kartona "${newChartNumber}" već pripada pacijentu ${chartMatch.first_name} ${chartMatch.last_name || ''}.`
+        }
+      }
+    }
     
     let phone = sanitizePhone(formData.get('phone'))
     if (!phone || phone === '/' || phone.startsWith('/')) {
-      // Check if existing record had a generated phone, reuse it to avoid breaking uniqueness or duplicating
-      const supabaseCheck = await createClient()
-      const { data: currentPatient } = await supabaseCheck
+      const { data: currentPatient } = await supabase
         .from('patients')
         .select('phone')
         .eq('id', patientId)
@@ -217,7 +429,29 @@ export async function updatePatient(
       if (currentPatient?.phone && currentPatient.phone.startsWith('/-no-phone-')) {
         phone = currentPatient.phone
       } else {
-        phone = `/-no-phone-${Math.random().toString(36).substring(2, 10)}`
+        const fName = sanitizeText(formData.get('first_name')) || 'Nepoznato'
+        const lName = sanitizeText(formData.get('last_name')) || null
+        phone = generateDeterministicNoPhone(fName, lName, newChartNumber, null)
+      }
+    } else {
+      // Provera sudara telefona sa drugim pacijentom
+      const { data: phoneMatch } = await supabase
+        .from('patients')
+        .select('id, first_name, last_name')
+        .eq('phone', phone)
+        .neq('id', patientId)
+        .maybeSingle()
+
+      if (phoneMatch) {
+        const isShared = formData.get('is_shared_phone') === 'true'
+        if (!isShared) {
+          return {
+            success: false,
+            error: `Broj telefona već koristi drugi pacijent: ${phoneMatch.first_name} ${phoneMatch.last_name || ''}. Ako dele telefon, potvrdite deljeni telefon.`
+          }
+        }
+        const famKey = Math.random().toString(36).replace(/[^a-z]/g, '').substring(0, 4) || 'fam'
+        phone = `${phone}-deljen-${famKey}`
       }
     }
 
@@ -230,7 +464,7 @@ export async function updatePatient(
       medical_alerts: sanitizeText(formData.get('medical_alerts')) || null,
       notes: sanitizeText(formData.get('notes')) || null,
       category: validCategories.includes(rawCategory) ? rawCategory : 'regular',
-      chart_number: sanitizeText(formData.get('chart_number')) || null,
+      chart_number: newChartNumber,
       has_hypertension: formData.get('has_hypertension') === 'true',
       has_diabetes: formData.get('has_diabetes') === 'true',
       takes_anticoagulants: formData.get('takes_anticoagulants') === 'true',
@@ -238,9 +472,8 @@ export async function updatePatient(
       consent_signed: formData.get('consent_signed') === 'true',
     }
 
-    if (!updates.first_name) return { success: false, error: 'Ime je obavezno.' }
+    if (!updates.first_name) return { success: false, error: 'Ime je obavezno polje.' }
 
-    const supabase = await createClient()
     const { error } = await supabase
       .from('patients')
       .update(updates)
@@ -249,7 +482,7 @@ export async function updatePatient(
     if (error) {
       console.error('[updatePatient] DB Error:', error.message)
       if (error.message.includes('unique') || error.code === '23505') {
-        return { success: false, error: 'Drugi pacijent već koristi ovaj broj telefona.' }
+        return { success: false, error: 'Drugi pacijent već koristi ovaj broj telefona ili kartona.' }
       }
       return { success: false, error: 'Greška pri ažuriranju pacijenta.' }
     }
