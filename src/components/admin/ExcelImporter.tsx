@@ -1,10 +1,12 @@
+
+
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
 import { useDropzone } from 'react-dropzone'
 import * as XLSX from 'xlsx'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, Loader2, BarChart3 } from 'lucide-react'
+import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type { ImportPatient } from '@/app/admin/actions'
 
@@ -13,19 +15,18 @@ interface ExcelImporterProps {
   onImportSuccess?: () => void
 }
 
-const headerMap: Record<string, string> = {
-  first_name: 'Ime',
-  last_name: 'Prezime',
-  phone: 'Telefon',
-  chart_number: 'Broj kartona',
-  email: 'Email',
-  parent_name: 'Ime roditelja',
-  medical_alerts: 'Alergije/Upozorenja',
-  notes: 'Napomene/Podaci',
-  category: 'Kategorija',
-  appointment_date: 'Sledeći termin',
-  doctor_name: 'Lekar'
-}
+const DISPLAY_COLUMNS: Array<{ key: keyof ImportPatient; label: string }> = [
+  { key: 'first_name', label: 'Ime i Prezime' },
+  { key: 'chart_number', label: 'Broj kartona' },
+  { key: 'phone', label: 'Telefon' },
+  { key: 'appointment_date', label: 'Sledeći termin' },
+  { key: 'doctor_name', label: 'Lekar' },
+  { key: 'category', label: 'Kategorija' },
+  { key: 'parent_name', label: 'Ime roditelja' },
+  { key: 'email', label: 'Email' },
+  { key: 'medical_alerts', label: 'Alergije/Upozorenja' },
+  { key: 'notes', label: 'Napomene/Podaci' },
+]
 
 function parseImportedDate(val: unknown): string | null {
   if (val === null || val === undefined || val === '') return null
@@ -847,11 +848,6 @@ export default function ExcelImporter({ onClose, onImportSuccess }: ExcelImporte
     abortRef.current = true
   }
 
-  const validRowsCount = dataPreview.length
-  const headers = dataPreview.length > 0 
-    ? Object.keys(dataPreview[0]).filter(key => key !== 'isInvalid' && key !== '_generatedPhone') 
-    : []
-
   // Calculate time estimates
   const getTimeEstimate = () => {
     if (!progress || progress.phase !== 'uploading' || progress.processedRows === 0) return 'Proračun...'
@@ -908,8 +904,8 @@ export default function ExcelImporter({ onClose, onImportSuccess }: ExcelImporte
               <h3 className="text-lg font-bold text-slate-900">Uvoz u toku...</h3>
               <p className="text-sm text-slate-500 font-medium transition-all duration-200">
                 {progress.processedRows < progress.totalRows
-                  ? `Ubacujem pacijente ${((progress.currentChunk - 1) * CHUNK_SIZE) + 1} - ${Math.min(progress.currentChunk * CHUNK_SIZE, progress.totalRows)} od ${progress.totalRows.toLocaleString()}...`
-                  : 'Svi podaci su poslati, završavam uvoz...'}
+                  ? `Uvoz u toku: ${progress.processedRows.toLocaleString()} od ${progress.totalRows.toLocaleString()} pacijenata...`
+                  : 'Završavam uvoz i pripremam podatke...'}
               </p>
             </div>
           </div>
@@ -952,11 +948,6 @@ export default function ExcelImporter({ onClose, onImportSuccess }: ExcelImporte
             </div>
           </div>
 
-          {/* Chunk info */}
-          <div className="text-xs text-slate-500 text-center">
-            Chunk {progress.currentChunk} od {progress.totalChunks} • 
-            {' '}{CHUNK_SIZE} pacijenata po pošiljci
-          </div>
 
           {/* Cancel button */}
           <div className="flex justify-center">
@@ -1109,14 +1100,8 @@ export default function ExcelImporter({ onClose, onImportSuccess }: ExcelImporte
               <div className="flex items-center justify-between mb-4 shrink-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-[#0284C7] bg-[#E0F2FE] border border-sky-100 px-3 py-1 rounded-full">
-                    Pronađeno {dataPreview.length.toLocaleString()} redova
+                    Pronađeno {dataPreview.length.toLocaleString()} pacijenata
                   </span>
-                  {dataPreview.length > 1000 && (
-                    <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-100 px-3 py-1 rounded-full flex items-center gap-1">
-                      <BarChart3 size={12} />
-                      Veliki fajl — uvoz u {Math.ceil(dataPreview.length / CHUNK_SIZE)} chunk-ova
-                    </span>
-                  )}
                 </div>
                 <button
                   onClick={() => setDataPreview([])}
@@ -1133,9 +1118,9 @@ export default function ExcelImporter({ onClose, onImportSuccess }: ExcelImporte
                 <table className="w-full text-left text-sm whitespace-nowrap">
                   <thead className="bg-slate-100 sticky top-0 border-b border-slate-200">
                     <tr>
-                      {headers.map((key) => (
-                        <th key={key} className="px-4 py-3 text-slate-700 font-semibold">
-                          {key === 'first_name' ? 'Ime i Prezime' : (headerMap[key] || key)}
+                      {DISPLAY_COLUMNS.map((col) => (
+                        <th key={col.key} className="px-4 py-3 text-slate-700 font-semibold">
+                          {col.label}
                         </th>
                       ))}
                     </tr>
@@ -1146,9 +1131,8 @@ export default function ExcelImporter({ onClose, onImportSuccess }: ExcelImporte
                         key={i} 
                         className="hover:bg-slate-100/50"
                       >
-                        {headers.map((key, j) => {
-                          // Prikaži first_name + last_name zajedno
-                          if (key === 'first_name') {
+                        {DISPLAY_COLUMNS.map((col, j) => {
+                          if (col.key === 'first_name') {
                             const fn = row.first_name || ''
                             const ln = row.last_name || ''
                             const fullName = ln ? `${fn} ${ln}` : fn
@@ -1158,29 +1142,78 @@ export default function ExcelImporter({ onClose, onImportSuccess }: ExcelImporte
                               </td>
                             )
                           }
-                          // Preskoči last_name jer je uključen u first_name red
-                          if (key === 'last_name') return null
-                          const val = row[key as keyof ImportPatient]
-                          if (key === 'phone' && val === '/') {
+                          if (col.key === 'chart_number') {
+                            const cn = row.chart_number
                             return (
-                              <td key={j} className="px-4 py-3 text-slate-400 font-medium italic">
-                                /
+                              <td key={j} className="px-4 py-3 text-slate-900 font-bold">
+                                {cn ? (
+                                  <span className="inline-flex items-center gap-1 bg-sky-50 border border-sky-200 text-[#0284C7] text-xs font-bold px-2 py-0.5 rounded-lg shadow-xs">
+                                    #{cn}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 font-normal">-</span>
+                                )}
                               </td>
                             )
                           }
-                          if (key === 'appointment_date' && val) {
-                            try {
-                              const [dPart, tPart] = String(val).split('T')
-                              if (dPart && tPart) {
-                                const [y, m, d] = dPart.split('-')
-                                return (
-                                  <td key={j} className="px-4 py-3 text-emerald-600 font-medium">
-                                    {`${d}.${m}.${y}. u ${tPart}`}
-                                  </td>
-                                )
-                              }
-                            } catch {}
+                          if (col.key === 'phone') {
+                            const phoneVal = row.phone
+                            return (
+                              <td key={j} className="px-4 py-3 text-slate-700">
+                                {!phoneVal || phoneVal === '/' || phoneVal.startsWith('/') ? (
+                                  <span className="text-slate-400 italic">/</span>
+                                ) : (
+                                  phoneVal
+                                )}
+                              </td>
+                            )
                           }
+                          if (col.key === 'appointment_date') {
+                            const val = row.appointment_date
+                            if (val) {
+                              try {
+                                const [dPart, tPart] = String(val).split('T')
+                                if (dPart && tPart) {
+                                  const [y, m, d] = dPart.split('-')
+                                  return (
+                                    <td key={j} className="px-4 py-3 text-emerald-600 font-semibold">
+                                      {`${d}.${m}.${y}. u ${tPart}`}
+                                    </td>
+                                  )
+                                }
+                              } catch {}
+                            }
+                            return (
+                              <td key={j} className="px-4 py-3 text-slate-400">
+                                -
+                              </td>
+                            )
+                          }
+                          if (col.key === 'doctor_name') {
+                            const doc = row.doctor_name
+                            return (
+                              <td key={j} className="px-4 py-3 text-slate-700 font-medium">
+                                {doc || <span className="text-slate-400">-</span>}
+                              </td>
+                            )
+                          }
+                          if (col.key === 'category') {
+                            const cat = row.category || 'regular'
+                            const catBadge = cat === 'implant'
+                              ? 'text-[#0284C7] bg-[#E0F2FE] border-sky-100'
+                              : cat === 'proteza'
+                              ? 'text-violet-750 bg-violet-50 border-violet-100'
+                              : 'text-slate-500 bg-slate-100 border-slate-200/60'
+                            const catLabel = cat === 'implant' ? 'Implant' : cat === 'proteza' ? 'Protetika' : 'Regularni'
+                            return (
+                              <td key={j} className="px-4 py-3">
+                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-lg border ${catBadge}`}>
+                                  {catLabel}
+                                </span>
+                              </td>
+                            )
+                          }
+                          const val = row[col.key]
                           return (
                             <td key={j} className="px-4 py-3 text-slate-700">
                               {val === null || val === undefined || val === '' ? (
@@ -1193,8 +1226,8 @@ export default function ExcelImporter({ onClose, onImportSuccess }: ExcelImporte
                     ))}
                     {dataPreview.length > 100 && (
                       <tr>
-                        <td colSpan={headers.length} className="px-4 py-4 text-center text-slate-400 text-sm italic bg-slate-50">
-                          ... i još {(dataPreview.length - 100).toLocaleString()} redova (prikazan pregled prvih 100)
+                        <td colSpan={DISPLAY_COLUMNS.length} className="px-4 py-4 text-center text-slate-400 text-sm italic bg-slate-50">
+                          ... i još {(dataPreview.length - 100).toLocaleString()} pacijenata (prikazan pregled prvih 100)
                         </td>
                       </tr>
                     )}
@@ -1219,11 +1252,11 @@ export default function ExcelImporter({ onClose, onImportSuccess }: ExcelImporte
                 </button>
                 <button
                   onClick={handleUpload}
-                  disabled={isUploading || validRowsCount === 0}
+                  disabled={isUploading || dataPreview.length === 0}
                   className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-[#0284C7] hover:bg-sky-600 text-white transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm"
                 >
                   {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                  Započni uvoz ({validRowsCount.toLocaleString()})
+                  Započni uvoz ({dataPreview.length.toLocaleString()})
                 </button>
               </div>
             </div>
